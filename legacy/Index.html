@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <meta
+      name="description"
+      content="Summit HRIS — Enterprise Human Resources Platform"
+    />
+    <?!= include('Styles'); ?>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- DM Serif Display = CohereText equivalent | IBM Plex Mono = CohereMono equivalent -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="h-screen overflow-hidden bg-[#1c1707] outline-none">
+    <!-- Summit Enterprise Loader -->
+    <div
+      id="loader"
+      class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white"
+    >
+      <span class="c-loader"></span>
+      <p
+        class="mt-6 font-mono text-[10px] tracking-[0.2em] uppercase text-[#93939f]"
+      >
+        Summit Enterprise
+      </p>
+    </div>
+
+    <!-- App Shell -->
+    <div id="app" class="h-screen w-full opacity-0 overflow-hidden">
+      <main
+        id="main-content"
+        class="h-full w-full flex items-center justify-center overflow-hidden"
+      ></main>
+    </div>
+
+    <!-- Persistent Biometric Capture (Hidden) -->
+    <div id="attendance-clock-result" style="font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:#93939f;margin-bottom:10px;"></div>
+    
+    <!-- Profile Photo Upload (Global) -->
+    <input type="file" id="avatar-input" style="display:none" accept="image/*" onchange="uploadProfilePhoto(this)">
+
+    <?!= include('Scripts'); ?>
+  </body>
+</html>

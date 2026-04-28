@@ -202,13 +202,13 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                    <select 
                      value={formData.type}
                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                     className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none"
+                     className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none [color-scheme:dark]"
                    >
-                     <option value="Meeting">Strategic Meeting</option>
-                     <option value="Training">Training Session</option>
-                     <option value="Town Hall">Town Hall</option>
-                     <option value="Holiday">Corporate Holiday</option>
-                     <option value="Event">General Event</option>
+                     <option value="Meeting" className="bg-brand-obsidian">Strategic Meeting</option>
+                     <option value="Training" className="bg-brand-obsidian">Training Session</option>
+                     <option value="Town Hall" className="bg-brand-obsidian">Town Hall</option>
+                     <option value="Holiday" className="bg-brand-obsidian">Corporate Holiday</option>
+                     <option value="Event" className="bg-brand-obsidian">General Event</option>
                    </select>
                    <ChevronDown size={14} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
                 </div>
@@ -236,7 +236,7 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                          type="date"
                          value={formData.startDate}
                          onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
+                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold [color-scheme:dark]"
                        />
                     </div>
                     {isMultiDay && (
@@ -246,7 +246,7 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                             type="date"
                             value={formData.endDate}
                             onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                            className="w-full bg-white/5 border border-brand-gold/20 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold shadow-[0_0_20px_rgba(202,138,4,0.05)]"
+                            className="w-full bg-white/5 border border-brand-gold/20 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold shadow-[0_0_20px_rgba(202,138,4,0.05)] [color-scheme:dark]"
                           />
                        </motion.div>
                     )}
@@ -259,7 +259,7 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                         type="time"
                         value={formData.startTime}
                         onChange={(e) => setFormData({...formData, startTime: e.target.value})}
-                        className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-white text-xs focus:border-brand-gold/50 outline-none transition-all font-bold"
+                        className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-white text-xs focus:border-brand-gold/50 outline-none transition-all font-bold [color-scheme:dark]"
                       />
                     </div>
                     <div className="relative">
@@ -268,7 +268,7 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                         type="time"
                         value={formData.endTime}
                         onChange={(e) => setFormData({...formData, endTime: e.target.value})}
-                        className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-white text-xs focus:border-brand-gold/50 outline-none transition-all font-bold"
+                        className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-white text-xs focus:border-brand-gold/50 outline-none transition-all font-bold [color-scheme:dark]"
                       />
                     </div>
                  </div>
@@ -291,12 +291,12 @@ export default function EventModal({ isOpen, onClose, onUpdate, mode, event, def
                     <select 
                       value={formData.priority}
                       onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none [color-scheme:dark]"
                     >
-                      <option value="Low">Low Priority</option>
-                      <option value="Medium">Medium Priority</option>
-                      <option value="High">High Urgency</option>
-                      <option value="Critical">Critical Protocol</option>
+                      <option value="Low" className="bg-brand-obsidian">Low Priority</option>
+                      <option value="Medium" className="bg-brand-obsidian">Medium Priority</option>
+                      <option value="High" className="bg-brand-obsidian">High Urgency</option>
+                      <option value="Critical" className="bg-brand-obsidian">Critical Protocol</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
                  </div>

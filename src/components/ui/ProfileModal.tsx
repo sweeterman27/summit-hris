@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, User, Mail, Briefcase, MapPin, Target, ChevronDown } from 'lucide-react';
+import { X, Save, User, Mail, Briefcase, MapPin, Target, ChevronDown, Cake, Smartphone } from 'lucide-react';
 import { DEPARTMENTS, POSITIONS } from '@/lib/constants';
 import MapSelector from './MapSelector';
 
@@ -200,8 +200,8 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                            <User className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
                            <input 
                              value={formData.firstName}
-                             onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
+                             onChange={(e) => setFormData({...formData, firstName: e.target.value.toUpperCase()})}
+                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
                            />
                          </div>
                       </div>
@@ -209,7 +209,7 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Middle Name</label>
                          <input 
                            value={formData.middleName}
-                           onChange={(e) => setFormData({...formData, middleName: e.target.value})}
+                           onChange={(e) => setFormData({...formData, middleName: e.target.value.toUpperCase()})}
                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
                          />
                       </div>
@@ -219,8 +219,8 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                            <User className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
                            <input 
                              value={formData.lastName}
-                             onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
+                             onChange={(e) => setFormData({...formData, lastName: e.target.value.toUpperCase()})}
+                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
                            />
                          </div>
                       </div>
@@ -233,7 +233,7 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                          <input 
                            value={formData.email}
                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                           className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
+                           className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
                          />
                        </div>
                     </div>
@@ -246,11 +246,11 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                             <select 
                               value={formData.department}
                               onChange={(e) => setFormData({...formData, department: e.target.value})}
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer"
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                             >
-                              <option value="" className="bg-brand-obsidian">Select Department</option>
+                              <option value="" className="bg-brand-obsidian text-white">Select Department</option>
                               {DEPARTMENTS.map(d => (
-                                <option key={d} value={d} className="bg-brand-obsidian">{d}</option>
+                                <option key={d} value={d} className="bg-brand-obsidian text-white">{d}</option>
                               ))}
                             </select>
                             <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={16} />
@@ -263,11 +263,11 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                              <select 
                                value={formData.position}
                                onChange={(e) => setFormData({...formData, position: e.target.value})}
-                               className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer"
+                               className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-10 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                              >
-                               <option value="" className="bg-brand-obsidian">Select Position</option>
+                               <option value="" className="bg-brand-obsidian text-white">Select Position</option>
                                {POSITIONS.map(p => (
-                                 <option key={p} value={p} className="bg-brand-obsidian">{p}</option>
+                                 <option key={p} value={p} className="bg-brand-obsidian text-white">{p}</option>
                                ))}
                              </select>
                              <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={16} />
@@ -286,25 +286,28 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                     <div className="grid grid-cols-3 gap-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Birthdate</label>
-                         <input 
-                           type="date"
-                           value={formData.birthdate}
-                           onChange={(e) => setFormData({...formData, birthdate: e.target.value})}
-                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
-                         />
+                         <div className="relative">
+                           <Cake className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
+                           <input 
+                             type="date"
+                             value={formData.birthdate}
+                             onChange={(e) => setFormData({...formData, birthdate: e.target.value})}
+                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold [color-scheme:dark]"
+                           />
+                         </div>
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Civil Status</label>
                          <select 
                            value={formData.civilStatus}
                            onChange={(e) => setFormData({...formData, civilStatus: e.target.value})}
-                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer"
+                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                          >
-                            <option value="">Select Status</option>
-                            <option value="Single">Single</option>
-                            <option value="Married">Married</option>
-                            <option value="Widowed">Widowed</option>
-                            <option value="Separated">Separated</option>
+                            <option value="" className="bg-brand-obsidian text-white">Select Status</option>
+                            <option value="Single" className="bg-brand-obsidian text-white">Single</option>
+                            <option value="Married" className="bg-brand-obsidian text-white">Married</option>
+                            <option value="Widowed" className="bg-brand-obsidian text-white">Widowed</option>
+                            <option value="Separated" className="bg-brand-obsidian text-white">Separated</option>
                          </select>
                       </div>
                       <div className="space-y-2">
@@ -312,24 +315,27 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                          <select 
                            value={formData.gender}
                            onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer"
+                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                          >
-                            <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
+                            <option value="" className="bg-brand-obsidian text-white">Select Gender</option>
+                            <option value="Male" className="bg-brand-obsidian text-white">Male</option>
+                            <option value="Female" className="bg-brand-obsidian text-white">Female</option>
+                            <option value="Other" className="bg-brand-obsidian text-white">Other</option>
                          </select>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Mobile Number</label>
-                       <input 
-                         placeholder="+63 9XX XXX XXXX"
-                         value={formData.mobileNo}
-                         onChange={(e) => setFormData({...formData, mobileNo: e.target.value})}
-                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
-                       />
+                       <div className="relative">
+                         <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-gold/40" size={18} />
+                         <input 
+                           placeholder="+63 9XX XXX XXXX"
+                           value={formData.mobileNo}
+                           onChange={(e) => setFormData({...formData, mobileNo: e.target.value})}
+                           className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none transition-all font-bold"
+                         />
+                       </div>
                     </div>
 
                     <div className="space-y-2">
@@ -347,7 +353,7 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                          <input 
                            placeholder="Full Name"
                            value={formData.emergencyContact}
-                           onChange={(e) => setFormData({...formData, emergencyContact: e.target.value})}
+                           onChange={(e) => setFormData({...formData, emergencyContact: e.target.value.toUpperCase()})}
                            className="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-3 text-white focus:border-brand-gold/50 outline-none transition-all font-bold text-xs"
                          />
                       </div>

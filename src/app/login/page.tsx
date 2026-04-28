@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, ArrowRight, Loader2, Lock, Mail, Fingerprint, Sparkles } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Loader2, Lock, Mail, Fingerprint, Sparkles, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/Toast';
 
@@ -162,11 +162,24 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="mt-12 flex flex-col items-center gap-4">
+          <div className="mt-12 flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Missing Credentials?</span>
+              <button 
+                type="button"
+                onClick={() => window.location.href = 'mailto:hr@summit-enterprise.com?subject=HRIS Account Request'}
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold transition-all active:scale-95 flex items-center gap-3"
+              >
+                <Users size={14} />
+                Contact HR Support
+              </button>
+            </div>
+
             <div className="flex items-center gap-2 px-4 py-2 bg-white/[0.02] border border-white/5 rounded-full">
                <Sparkles size={12} className="text-brand-gold/40" />
                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20">Secure biometric secondary active</span>
             </div>
+            
             <p className="text-center text-white/10 text-[9px] font-black uppercase tracking-[0.2em] leading-relaxed">
               Authorized personnel only <br /> 
               Neural monitoring & Registry logging active
@@ -179,9 +192,12 @@ export default function LoginPage() {
         </div>
         
         {/* Footnote */}
-        <p className="mt-8 text-center text-white/10 text-[10px] font-medium tracking-widest uppercase">
-          Powered by Summit Intelligence Protocol v4.0
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <p className="text-center text-white/10 text-[10px] font-medium tracking-widest uppercase">
+            Powered by Summit Intelligence Protocol v4.0
+          </p>
+          <div className="h-1 w-12 bg-brand-gold/20 rounded-full" />
+        </div>
       </motion.div>
     </div>
   );

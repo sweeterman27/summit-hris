@@ -15,6 +15,7 @@ export default function AccomplishmentModal({ isOpen, onClose, onSubmitted }: Ac
   const [summary, setSummary] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,6 +33,42 @@ export default function AccomplishmentModal({ isOpen, onClose, onSubmitted }: Ac
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const compressImage = (file: File): Promise<Blob | File> => {
+    if (!file.type.startsWith('image/')) return Promise.resolve(file);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new (window as any).Image();
+        img.src = event.target?.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 1200; // Slightly higher quality for work proof
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(blob || file);
+          }, 'image/jpeg', 0.8);
+        };
+      };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!summary.trim()) {
@@ -44,22 +81,43 @@ export default function AccomplishmentModal({ isOpen, onClose, onSubmitted }: Ac
     }
 
     setLoading(true);
-    toast('Transmitting report to registry...', 'INFO', 'DATA SYNC');
+    setProgress(10);
+    toast('Compressing and transmitting data...', 'INFO', 'DATA SYNC');
 
     try {
+      // Stage 1: Compression (10% - 40%)
+      const optimizedFiles = await Promise.all(files.map(async (file, i) => {
+        const compressed = await compressImage(file);
+        setProgress(10 + ((i + 1) / files.length) * 30);
+        return compressed;
+      }));
+
+      // Stage 2: Upload (40% - 90%)
+      setProgress(45);
       const formData = new FormData();
       formData.append('summary', summary);
-      files.forEach(file => formData.append('files', file));
+      optimizedFiles.forEach((blob, i) => {
+        const originalFile = files[i];
+        formData.append('files', blob, originalFile.name);
+      });
 
       const res = await fetch('/api/accomplishments', {
         method: 'POST',
         body: formData,
       });
 
+      setProgress(95);
+
       const data = await res.json();
       if (data.success) {
+        setProgress(100);
         toast('Accomplishment report synchronized. Clock-out authorized.', 'SUCCESS', 'REGISTRY UPDATED');
-        onSubmitted();
+        setTimeout(() => {
+          setSummary('');
+          setFiles([]);
+          onSubmitted();
+          setProgress(0);
+        }, 500);
       } else {
         toast(data.message || 'Transmission failed.', 'ERROR', 'SYSTEM FAILURE');
       }
@@ -139,15 +197,24 @@ export default function AccomplishmentModal({ isOpen, onClose, onSubmitted }: Ac
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-16 bg-brand-gold hover:bg-white disabled:opacity-50 text-brand-obsidian font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                  className="w-full h-16 bg-brand-gold hover:bg-white disabled:opacity-50 text-brand-obsidian font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-xl transition-all flex flex-col items-center justify-center gap-1 active:scale-[0.98] relative overflow-hidden"
                 >
                   {loading ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
                     <>
+                      <div className="flex items-center gap-3 relative z-10">
+                        <Loader2 className="animate-spin" size={18} />
+                        <span>Transmitting {Math.round(progress)}%</span>
+                      </div>
+                      <div 
+                        className="absolute bottom-0 left-0 h-1 bg-brand-obsidian/20 transition-all duration-300" 
+                        style={{ width: `${progress}%` }}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3">
                       <span>Transmit Registry Data</span>
                       <Send size={18} />
-                    </>
+                    </div>
                   )}
                 </button>
               </div>

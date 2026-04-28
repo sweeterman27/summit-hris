@@ -8,6 +8,7 @@ import ProfileModal from '@/components/ui/ProfileModal';
 import OnboardingModal from '@/components/ui/OnboardingModal';
 import { useSession } from 'next-auth/react';
 import Pagination from '@/components/ui/Pagination';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Employee {
   employeeNo: string;
@@ -21,7 +22,7 @@ interface Employee {
 }
 
 export default function EmployeeDirectory() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const isAdmin = ['ADMIN', 'SUPERADMIN', 'HR'].includes((session?.user as any)?.role?.toUpperCase());
   
   const [employees, setEmployees] = React.useState<Employee[]>([]);
@@ -31,7 +32,10 @@ export default function EmployeeDirectory() {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [pendingRole, setPendingRole] = React.useState<{empNo: string, newRole: string, oldRole: string} | null>(null);
   const pageSize = 10;
+
+  const ROLE_HIERARCHY = ['Employee', 'Manager', 'HR', 'Admin', 'Superadmin'];
 
   const fetchEmployees = () => {
     fetch('/api/employees')
@@ -56,16 +60,27 @@ export default function EmployeeDirectory() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employeeNo, action, value })
       });
-      if (res.ok) fetchEmployees();
+      if (res.ok) {
+        fetchEmployees();
+        // RBAC Sync: If updating self, force a session update
+        if (employeeNo === (session?.user as any)?.employeeNo && action === 'role') {
+          await update({ role: value });
+          // Optional: slight delay or refresh to ensure all components sync
+          setTimeout(() => window.location.reload(), 500);
+        }
+      }
     } catch (err) {
-      alert('Update failed');
+      console.error('Update failed');
     }
   };
 
-  const filtered = employees.filter(e => 
-    `${e.firstName} ${e.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-    e.employeeNo.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = employees.filter(e => {
+    const fullName = `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase();
+    const searchLower = search.toLowerCase();
+    const empNo = (e.employeeNo || '').toLowerCase();
+    
+    return fullName.includes(searchLower) || empNo.includes(searchLower);
+  });
 
   return (
     <DashboardLayout>
@@ -159,7 +174,7 @@ export default function EmployeeDirectory() {
                       <td className="px-6 py-8">
                         <select
                           value={e.role}
-                          onChange={(ev) => handleUpdate(e.employeeNo, 'role', ev.target.value)}
+                          onChange={(ev) => setPendingRole({ empNo: e.employeeNo, newRole: ev.target.value, oldRole: e.role })}
                           className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-gold outline-none focus:border-brand-gold/50 transition-all cursor-pointer"
                         >
                           {['Employee', 'Manager', 'HR', 'Admin', 'Superadmin'].map(r => (
@@ -220,6 +235,72 @@ export default function EmployeeDirectory() {
         onClose={() => setIsOnboardingOpen(false)}
         onSuccess={fetchEmployees}
       />
+
+      {/* Role Change Confirmation Modal */}
+      <AnimatePresence>
+        {pendingRole && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-brand-obsidian/90 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-md bg-[#0a0904] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden"
+            >
+              <div className="relative z-10 text-center">
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
+                  ROLE_HIERARCHY.indexOf(pendingRole.newRole) > ROLE_HIERARCHY.indexOf(pendingRole.oldRole)
+                    ? 'bg-brand-gold/10 text-brand-gold'
+                    : 'bg-rose-500/10 text-rose-500'
+                }`}>
+                  <Shield size={32} />
+                </div>
+                
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">
+                  {ROLE_HIERARCHY.indexOf(pendingRole.newRole) > ROLE_HIERARCHY.indexOf(pendingRole.oldRole)
+                    ? 'Confirm System Upgrade'
+                    : 'Confirm Role Restriction'}
+                </h3>
+                
+                <p className="text-white/60 text-sm leading-relaxed mb-8">
+                  You are about to change the system role from <span className="text-white font-bold">{pendingRole.oldRole}</span> to <span className="text-brand-gold font-bold">{pendingRole.newRole}</span>. 
+                  {ROLE_HIERARCHY.indexOf(pendingRole.newRole) < ROLE_HIERARCHY.indexOf(pendingRole.oldRole) 
+                    ? " This will restrict current access levels."
+                    : " This will grant elevated operational permissions."}
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setPendingRole(null)}
+                    className="h-14 rounded-2xl bg-white/5 border border-white/10 text-white/40 font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all"
+                  >
+                    Abort Change
+                  </button>
+                  <button 
+                    onClick={() => {
+                      handleUpdate(pendingRole.empNo, 'role', pendingRole.newRole);
+                      setPendingRole(null);
+                    }}
+                    className={`h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all active:scale-95 ${
+                      ROLE_HIERARCHY.indexOf(pendingRole.newRole) > ROLE_HIERARCHY.indexOf(pendingRole.oldRole)
+                        ? 'bg-brand-gold text-brand-obsidian shadow-brand-gold/20'
+                        : 'bg-rose-500 text-white shadow-rose-500/20'
+                    }`}
+                  >
+                    Confirm & Commit
+                  </button>
+                </div>
+              </div>
+
+              {/* Decorative Glow */}
+              <div className={`absolute -bottom-20 -right-20 w-40 h-40 rounded-full blur-[100px] pointer-events-none ${
+                ROLE_HIERARCHY.indexOf(pendingRole.newRole) > ROLE_HIERARCHY.indexOf(pendingRole.oldRole)
+                  ? 'bg-brand-gold/10'
+                  : 'bg-rose-500/10'
+              }`} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }

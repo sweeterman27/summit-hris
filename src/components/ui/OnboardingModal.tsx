@@ -130,7 +130,7 @@ export default function OnboardingModal({ isOpen, onClose, onSuccess }: Onboardi
                       required
                       placeholder="First Name"
                       value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      onChange={(e) => setFormData({...formData, firstName: e.target.value.toUpperCase()})}
                       className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/40 outline-none transition-all placeholder:text-white/5 font-bold"
                     />
                   </div>
@@ -139,7 +139,7 @@ export default function OnboardingModal({ isOpen, onClose, onSuccess }: Onboardi
                       required
                       placeholder="Last Name"
                       value={formData.lastName}
-                      onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                      onChange={(e) => setFormData({...formData, lastName: e.target.value.toUpperCase()})}
                       className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-8 py-4 text-white focus:border-brand-gold/40 outline-none transition-all placeholder:text-white/5 font-bold"
                     />
                   </div>
@@ -198,10 +198,10 @@ export default function OnboardingModal({ isOpen, onClose, onSuccess }: Onboardi
                     <select 
                       value={formData.role}
                       onChange={(e) => setFormData({...formData, role: e.target.value})}
-                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                     >
                       {['Employee', 'Manager', 'HR', 'Admin', 'Superadmin'].map(r => (
-                        <option key={r} value={r} className="bg-brand-obsidian">{r} Role</option>
+                        <option key={r} value={r} className="bg-brand-obsidian text-white">{r} Role</option>
                       ))}
                     </select>
                   </div>
@@ -212,11 +212,11 @@ export default function OnboardingModal({ isOpen, onClose, onSuccess }: Onboardi
                     <select 
                       value={formData.department}
                       onChange={(e) => setFormData({...formData, department: e.target.value})}
-                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-14 pr-10 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                     >
-                      <option value="" className="bg-brand-obsidian">Select Department</option>
+                      <option value="" className="bg-brand-obsidian text-white">Select Department</option>
                       {DEPARTMENTS.map(d => (
-                        <option key={d} value={d} className="bg-brand-obsidian">{d}</option>
+                        <option key={d} value={d} className="bg-brand-obsidian text-white">{d}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={16} />
@@ -225,11 +225,11 @@ export default function OnboardingModal({ isOpen, onClose, onSuccess }: Onboardi
                     <select 
                       value={formData.position}
                       onChange={(e) => setFormData({...formData, position: e.target.value})}
-                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-8 pr-10 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer"
+                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-8 pr-10 py-4 text-white focus:border-brand-gold/40 outline-none transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
                     >
-                      <option value="" className="bg-brand-obsidian">Select Position</option>
+                      <option value="" className="bg-brand-obsidian text-white">Select Position</option>
                       {POSITIONS.map(p => (
-                        <option key={p} value={p} className="bg-brand-obsidian">{p}</option>
+                        <option key={p} value={p} className="bg-brand-obsidian text-white">{p}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={16} />

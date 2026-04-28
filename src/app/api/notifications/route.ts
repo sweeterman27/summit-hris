@@ -15,9 +15,12 @@ export async function GET(req: NextRequest) {
     const sheet = doc.sheetsByTitle[SHEET_NAMES.NOTIFICATIONS];
     const rows = await sheet.getRows();
 
-    // Fetch last 20 notifications for the user
+    // Fetch last 20 notifications (include those tagged as 'ALL' for global alerts)
     const userNotifications = rows
-      .filter((row) => row.get('Employee No.')?.toString() === employeeNo?.toString())
+      .filter((row) => {
+        const rowEmpNo = row.get('Employee No.')?.toString();
+        return rowEmpNo === employeeNo?.toString() || rowEmpNo === 'ALL';
+      })
       .slice(-20)
       .reverse()
       .map((row) => ({
@@ -53,13 +56,15 @@ export async function PATCH(req: NextRequest) {
       const userRows = rows.filter(
         (row) => row.get('Employee No.')?.toString() === employeeNo?.toString() && row.get('Status') === 'Unread'
       );
-      for (const row of userRows) {
+      
+      // OPTIMIZATION: Process all saves in parallel
+      await Promise.all(userRows.map(row => {
         row.set('Status', 'Read');
-        await row.save();
-      }
+        return row.save();
+      }));
     } else if (notificationId) {
       const row = rows.find((r) => r.get('ID') === notificationId);
-      if (row && row.get('Employee No.')?.toString() === employeeNo?.toString()) {
+      if (row && (row.get('Employee No.')?.toString() === employeeNo?.toString() || row.get('Employee No.') === 'ALL')) {
         row.set('Status', 'Read');
         await row.save();
       }

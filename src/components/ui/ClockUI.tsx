@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useSession } from 'next-auth/react';
 import { Clock, CheckCircle2, AlertTriangle, Loader2, Camera, ShieldCheck } from 'lucide-react';
 import BiometricModal from './BiometricModal';
 import AccomplishmentModal from './AccomplishmentModal';
@@ -85,19 +86,32 @@ export default function ClockUI({ onUpdate }: { onUpdate: () => void }) {
     }
   };
 
+  const { data: session } = useSession();
+  const shiftStart = (session?.user as any)?.shiftStart;
+  const shiftEnd = (session?.user as any)?.shiftEnd;
+
   return (
     <>
       <div className="bg-white/[0.02] border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-xl relative overflow-hidden shadow-deep">
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-start justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Time Terminal</h2>
-              <div className="flex items-center gap-2 mt-1">
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase leading-none">Time Terminal</h2>
+              <div className="flex items-center gap-2 mt-2">
                 <ShieldCheck size={10} className="text-brand-gold" />
                 <p className="text-brand-gold/60 text-[9px] font-black uppercase tracking-[0.2em]">Biometric & Geofence Active</p>
               </div>
+              
+              {shiftStart && (
+                <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/5">
+                  <Clock size={10} className="text-brand-gold/40" />
+                  <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">
+                    {shiftStart} — {shiftEnd}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="w-14 h-14 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex items-center justify-center text-brand-gold shadow-lg">
+            <div className="w-14 h-14 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex items-center justify-center text-brand-gold shadow-lg shrink-0">
               <Clock size={28} strokeWidth={1.5} />
             </div>
           </div>

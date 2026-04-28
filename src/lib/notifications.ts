@@ -1,10 +1,15 @@
 import { getDoc, SHEET_NAMES } from './googleSheets';
 import { EventEmitter } from 'events';
+import { Resend } from 'resend';
 
-// Global event emitter for real-time SSE updates
-// In Next.js dev mode, this might reset on HMR, but in production/persistent server it works
+// Initialize Resend (Optional - will only send if API key exists)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 export const notificationEvents = new EventEmitter();
 
+/**
+ * Base function for a single notification
+ */
 export async function sendNotification(
   userId: string, 
   title: string, 
@@ -23,9 +28,10 @@ export async function sendNotification(
       });
     }
 
+    // 1. Save to Sheet
     if (sheet) {
       await sheet.addRow({
-        'ID': `NOTIF-${Date.now()}`,
+        'ID': `NOTIF-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         'Employee No.': userId,
         'Title': title,
         'Message': message,
@@ -35,12 +41,25 @@ export async function sendNotification(
       });
     }
 
-    // Broadcast to active SSE streams
+    // 2. Real-time Broadcast
     notificationEvents.emit('notification', { userId, title, message, type, createdAt: new Date().toISOString() });
 
-    // Email logic (Placeholder for now)
-    if (email) {
-      console.log(`[EMAIL NOTIFICATION] To: ${email} | Subject: ${title} | Body: ${message}`);
+    // 3. Real Email Delivery
+    if (email && resend) {
+      resend.emails.send({
+        from: 'Summit Enterprise <notifications@summit-hris.app>',
+        to: email,
+        subject: `[SUMMIT] ${title}`,
+        text: message,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #ca8a04;">${title}</h2>
+            <p style="color: #333; font-size: 16px;">${message}</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="color: #999; font-size: 12px;">This is an automated operational briefing from Summit Enterprise.</p>
+          </div>
+        `
+      }).catch(e => console.error('Email Send Error:', e));
     }
 
     return true;
@@ -51,8 +70,62 @@ export async function sendNotification(
 }
 
 /**
- * Sends a notification to all users with specific roles
+ * HIGH-SPEED BULK NOTIFICATION
+ * Optimizes performance by batch-saving rows to Google Sheets
  */
+export async function bulkSendNotifications(
+  notifications: { userId: string; title: string; message: string; type?: any; email?: string }[]
+) {
+  if (notifications.length === 0) return true;
+
+  try {
+    const doc = await getDoc();
+    let sheet = doc.sheetsByTitle[SHEET_NAMES.NOTIFICATIONS];
+    
+    if (!sheet) {
+      sheet = await doc.addSheet({ 
+        title: SHEET_NAMES.NOTIFICATIONS, 
+        headerValues: ['ID', 'Employee No.', 'Title', 'Message', 'Type', 'Status', 'Created At'] 
+      });
+    }
+
+    // 1. Prepare batch data
+    const rows = notifications.map(n => ({
+      'ID': `NOTIF-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      'Employee No.': n.userId,
+      'Title': n.title,
+      'Message': n.message,
+      'Type': n.type || 'INFO',
+      'Status': 'Unread',
+      'Created At': new Date().toISOString()
+    }));
+
+    // 2. Optimized Bulk Save (ONE request instead of many)
+    if (sheet) {
+      await sheet.addRows(rows);
+    }
+
+    // 3. Emit events and trigger emails
+    notifications.forEach(n => {
+      notificationEvents.emit('notification', { ...n, createdAt: new Date().toISOString() });
+      
+      if (n.email && resend) {
+        resend.emails.send({
+          from: 'Summit Enterprise <notifications@summit-hris.app>',
+          to: n.email,
+          subject: `[SUMMIT] ${n.title}`,
+          text: n.message,
+        }).catch(err => console.error('Bulk Email Fail:', err));
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Bulk Notification Error:', error);
+    return false;
+  }
+}
+
 export async function notifyRoles(
   roles: string[],
   title: string,
@@ -61,30 +134,29 @@ export async function notifyRoles(
 ) {
   try {
     const doc = await getDoc();
-    const accessSheet = doc.sheetsByTitle[SHEET_NAMES.ACCESS];
-    const accessRows = await accessSheet.getRows();
+    const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
+    const empRows = await empSheet.getRows();
     
-    // Filter rows by role (case-insensitive)
-    const targetUsers = accessRows.filter(row => {
-      const userRole = row.get('Role')?.toUpperCase();
-      return roles.some(r => r.toUpperCase() === userRole) && row.get('Status') !== 'Inactive';
-    });
+    const targets = empRows
+      .filter(row => {
+        const userRole = row.get('Role')?.toUpperCase();
+        return roles.some(r => r.toUpperCase() === userRole) && row.get('Status') === 'Active';
+      })
+      .map(user => ({
+        userId: user.get('Employee No.'),
+        title,
+        message,
+        type,
+        email: user.get('Updated Email Address') || user.get('Email Address')
+      }));
 
-    const promises = targetUsers.map(user => 
-      sendNotification(user.get('Employee No.'), title, message, type, user.get('Email'))
-    );
-
-    await Promise.all(promises);
-    return true;
+    return await bulkSendNotifications(targets);
   } catch (error) {
     console.error('NotifyRoles Error:', error);
     return false;
   }
 }
 
-/**
- * Sends a notification to all active employees
- */
 export async function notifyAll(
   title: string,
   message: string,
@@ -95,18 +167,17 @@ export async function notifyAll(
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
     const empRows = await empSheet.getRows();
     
-    const activeEmployees = empRows.filter(row => 
-      row.get('Status') !== 'Inactive' && 
-      row.get('Status') !== 'Resigned' && 
-      row.get('Employee No.')
-    );
+    const targets = empRows
+      .filter(row => row.get('Status') === 'Active' && row.get('Employee No.'))
+      .map(emp => ({
+        userId: emp.get('Employee No.'),
+        title,
+        message,
+        type,
+        email: emp.get('Updated Email Address') || emp.get('Email Address')
+      }));
 
-    const promises = activeEmployees.map(emp => 
-      sendNotification(emp.get('Employee No.'), title, message, type, emp.get('Personal Email') || emp.get('Work Email'))
-    );
-
-    await Promise.all(promises);
-    return true;
+    return await bulkSendNotifications(targets);
   } catch (error) {
     console.error('NotifyAll Error:', error);
     return false;

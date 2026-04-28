@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -12,31 +12,37 @@ export async function POST(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const filename = searchParams.get('filename') || `profile_${(session.user as any).employeeNo}.jpg`;
+    const user = session.user as any;
+    const filename = searchParams.get('filename') || `profile_${user.employeeNo}`;
 
     if (!request.body) {
       return NextResponse.json({ success: false, message: 'No file provided' }, { status: 400 });
     }
 
-    // 1. Upload to Vercel Blob
-    const blob = await put(filename, request.body, {
-      access: 'public',
-    });
+    const arrayBuffer = await request.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 1. Upload to Cloudinary (EASY & FAST)
+    const result = await uploadToCloudinary(
+      buffer, 
+      'SUMMIT/Profile Picture',
+      filename
+    ) as any;
 
     // 2. Update Google Sheet
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
     const rows = await sheet.getRows();
     const userRow = rows.find(
-      (r) => r.get('Employee No.')?.toString() === (session.user as any).employeeNo?.toString()
+      (r) => r.get('Employee No.')?.toString() === user.employeeNo?.toString()
     );
 
     if (userRow) {
-      userRow.set('Profile Photo', blob.url);
+      userRow.set('Profile Photo', result.url);
       await userRow.save();
     }
 
-    return NextResponse.json({ success: true, url: blob.url });
+    return NextResponse.json({ success: true, url: result.url });
   } catch (e: any) {
     console.error('Upload Error:', e);
     return NextResponse.json({ success: false, message: e.message }, { status: 500 });

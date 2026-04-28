@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 
 import ProfileModal from './ProfileModal';
 
+import useSWR from 'swr';
+
 interface IdentityUser {
   employeeNo: string;
   name?: string;
@@ -20,8 +22,97 @@ interface IdentityUser {
 
 export default function IdentityTablet() {
   const { data: session } = useSession();
-  const user = session?.user as IdentityUser | undefined;
+  const sessionUser = session?.user as IdentityUser | undefined;
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+
+  // Fetch live employee data
+  const { data: empData, mutate } = useSWR(sessionUser ? '/api/employees' : null);
+  
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new (window as any).Image();
+        img.src = event.target?.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Max resolution 800px (Plenty for a profile card)
+          const MAX_SIZE = 800;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            resolve(blob || file);
+          }, 'image/jpeg', 0.8); // 80% quality is perfect balance
+        };
+      };
+    });
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !sessionUser) return;
+
+    setUploading(true);
+    setProgress(10);
+    try {
+      const compressedBlob = await compressImage(file);
+      setProgress(50);
+      
+      const res = await fetch(`/api/upload?filename=profile_${sessionUser.employeeNo}_${Date.now()}.jpg`, {
+        method: 'POST',
+        body: compressedBlob,
+      });
+
+      setProgress(90);
+      const data = await res.json();
+      if (data.success) {
+        setProgress(100);
+        await mutate(); // Refresh live data
+      }
+    } catch (err) {
+      console.error('Upload failed:', err);
+    } finally {
+      setTimeout(() => {
+        setUploading(false);
+        setProgress(0);
+      }, 500);
+    }
+  };
+
+  // Find the current logged-in user in the live data list
+  const liveUser = empData?.employees?.find((e: any) => e.employeeNo?.toString() === sessionUser?.employeeNo?.toString());
+  
+  // Combine session and live data (Live data takes priority for display)
+  const user = liveUser ? {
+    ...sessionUser,
+    name: `${liveUser.firstName} ${liveUser.lastName}`,
+    email: liveUser.email,
+    role: liveUser.role, // FIX: Ensure role is pulled from live registry
+    department: liveUser.department,
+    position: liveUser.position,
+    profilePhoto: liveUser.photo || sessionUser?.profilePhoto
+  } : sessionUser;
 
   if (!user) return null;
 
@@ -37,34 +128,46 @@ export default function IdentityTablet() {
 
         <div className="relative z-10 flex flex-col items-center text-center gap-8">
           {/* Avatar Portal - Diamond Standard */}
-          <div className="relative">
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              className="w-36 h-36 rounded-[2rem] border-2 border-brand-gold/40 p-1 bg-white/5 shadow-2xl overflow-hidden group/avatar relative"
-            >
-              <div className="absolute inset-0 bg-gradient-to-tr from-brand-gold/20 via-transparent to-white/10 opacity-50 group-hover/avatar:opacity-100 transition-opacity" />
-              
+          <div className="relative group/avatar w-36 h-36 mx-auto mb-6">
+            <div className="absolute -inset-1 bg-gradient-to-tr from-brand-gold/40 to-transparent rounded-[2.5rem] blur-sm group-hover/avatar:blur-md transition-all duration-500" />
+            <div className="relative w-36 h-36 bg-brand-obsidian rounded-[2.5rem] border border-brand-gold/20 flex items-center justify-center overflow-hidden">
               {user.profilePhoto ? (
                 <Image 
                   src={user.profilePhoto} 
                   alt={user.name || 'Profile'} 
                   width={144} 
                   height={144}
-                  className="w-full h-full object-cover rounded-[1.8rem] transition-transform duration-700 group-hover/avatar:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-110"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-white/5 text-brand-gold font-bold text-4xl">
-                  {user.name?.charAt(0)}
+                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/10 group-hover/avatar:text-brand-gold transition-colors duration-500">
+                  <Camera size={32} />
                 </div>
               )}
-              
+            
               {/* Upload Overlay */}
-              <label className="absolute inset-0 bg-brand-obsidian/80 backdrop-blur-md opacity-0 group-hover/avatar:opacity-100 transition-all duration-500 flex flex-col items-center justify-center cursor-pointer">
-                <Camera size={24} className="text-brand-gold mb-2" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-white">Update Core Identity</span>
-                <input type="file" className="hidden" accept="image/*" onChange={() => {}} />
+              <label className="absolute inset-0 bg-brand-obsidian/80 backdrop-blur-md opacity-0 group-hover/avatar:opacity-100 transition-all duration-500 flex flex-col items-center justify-center cursor-pointer overflow-hidden">
+                {uploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin text-brand-gold"><Camera size={24} /></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">{progress}% SYNCED</span>
+                    <div className="absolute bottom-0 left-0 h-1 bg-brand-gold transition-all duration-300" style={{ width: `${progress}%` }} />
+                  </div>
+                ) : (
+                  <>
+                    <Camera size={24} className="text-brand-gold mb-2" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Update Core Identity</span>
+                  </>
+                )}
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleUpload}
+                  disabled={uploading}
+                />
               </label>
-            </motion.div>
+            </div>
             
             {/* Status Badge - Kinetic */}
             <div className="absolute -bottom-2 -right-2 bg-emerald-500/10 backdrop-blur-xl px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-2 shadow-xl">
@@ -123,14 +226,22 @@ export default function IdentityTablet() {
       <ProfileModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onUpdate={() => window.location.reload()} 
+        onUpdate={() => mutate()} 
         employee={{
           employeeNo: user.employeeNo,
-          firstName: user.name?.split(' ')[0],
-          lastName: user.name?.split(' ').slice(1).join(' '),
+          firstName: liveUser?.firstName || user.name?.split(' ')[0],
+          lastName: liveUser?.lastName || user.name?.split(' ').slice(1).join(' '),
+          middleName: liveUser?.middleName,
           email: user.email,
           department: user.department,
-          position: user.position
+          position: user.position,
+          birthdate: liveUser?.birthdate,
+          civilStatus: liveUser?.civilStatus,
+          gender: liveUser?.gender,
+          mobileNo: liveUser?.mobileNo,
+          completeAddress: liveUser?.completeAddress,
+          emergencyContact: liveUser?.emergencyContact,
+          emergencyNo: liveUser?.emergencyNo
         }}
         isAdmin={false}
       />

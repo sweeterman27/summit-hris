@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -25,14 +25,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'At least one proof of work (media) is required' }, { status: 400 });
     }
 
-    // 1. Upload files to Vercel Blob
-    const mediaUrls: string[] = [];
-    for (const file of files) {
-      const blob = await put(`accomplishments/${employeeNo}_${Date.now()}_${file.name}`, file, {
-        access: 'public',
-      });
-      mediaUrls.push(blob.url);
-    }
+    // 1. Upload files to Cloudinary - PARALLEL OPTIMIZED
+    const mediaUrls = await Promise.all(files.map(async (file) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      const result = await uploadToCloudinary(
+        buffer, 
+        'SUMMIT/Accomplishment Report',
+        `${employeeNo}_${Date.now()}_${file.name.split('.')[0]}`
+      ) as any;
+      
+      return result.url;
+    }));
 
     // 2. Save to Spreadsheet
     const doc = await getDoc();

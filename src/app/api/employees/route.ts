@@ -10,43 +10,48 @@ export async function GET(request: Request) {
 
     const doc = await getDoc();
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
-    const accSheet = doc.sheetsByTitle[SHEET_NAMES.ACCESS];
+
+    if (!empSheet) {
+      console.error('Sheet not found:', SHEET_NAMES.EMPLOYEES);
+      return NextResponse.json({ success: false, message: 'Database tab not found' }, { status: 500 });
+    }
 
     const empRows = await empSheet.getRows();
-    const accRows = await accSheet.getRows();
 
-    const employees = empRows.map(r => {
-      const empNo = r.get('Employee No.');
-      const acc = accRows.find(a => a.get('Employee No.')?.toString() === empNo?.toString());
-      return {
-        employeeNo: empNo,
-        firstName: r.get('First Name'),
-        lastName: r.get('Last Name'),
-        email: r.get('Email Address'),
-        department: r.get('Department'),
-        position: r.get('Position'),
-        workLat: r.get('Work Latitude'),
-        workLng: r.get('Work Longitude'),
-        workRadius: r.get('Work Radius'),
-        shiftStart: r.get('Shift Start'),
-        shiftEnd: r.get('Shift End'),
-        role: acc?.get('Role') || 'Unassigned',
-        status: acc?.get('Status') || 'Inactive',
-        photo: r.get('Profile Photo'),
-        middleName: r.get('Middle Name'),
-        birthdate: r.get('Birthdate'),
-        civilStatus: r.get('Civil Status'),
-        gender: r.get('Gender'),
-        mobileNo: r.get('Mobile No.'),
-        completeAddress: r.get('Complete Address'),
-        sssNo: r.get('SSS No.'),
-        tinNo: r.get('TIN No.'),
-        philhealthNo: r.get('Philhealth No.'),
-        pagibigNo: r.get('Pag-ibig No.'),
-        emergencyContact: r.get('Emergency Contact Person'),
-        emergencyNo: r.get('Emergency Contact No.')
-      };
-    });
+    // SAFETY GUARD: Filter out any "Ghost Rows" or empty lines in the spreadsheet
+    const employees = empRows
+      .filter(r => r.get('Employee No.') && r.get('First Name')) 
+      .map(r => {
+        const empNo = r.get('Employee No.')?.toString() || 'Unknown';
+        return {
+          employeeNo: empNo,
+          firstName: r.get('First Name') || '',
+          lastName: r.get('Last Name') || '',
+          email: r.get('Email Address') || r.get('Updated Email Address') || '',
+          department: r.get('Department') || 'Unassigned',
+          position: r.get('Position') || 'Unassigned',
+          workLat: r.get('Work Latitude'),
+          workLng: r.get('Work Longitude'),
+          workRadius: r.get('Work Radius'),
+          shiftStart: r.get('Shift Start'),
+          shiftEnd: r.get('Shift End'),
+          role: r.get('Role') ? (String(r.get('Role')).charAt(0).toUpperCase() + String(r.get('Role')).slice(1).toLowerCase()) : 'Employee',
+          status: r.get('Status') || 'Inactive',
+          photo: r.get('Profile Photo'),
+          middleName: r.get('Middle Name'),
+          birthdate: r.get('Birthdate'),
+          civilStatus: r.get('Civil Status'),
+          gender: r.get('Gender'),
+          mobileNo: r.get('Mobile No.'),
+          completeAddress: r.get('Complete Address'),
+          sssNo: r.get('SSS No.'),
+          tinNo: r.get('TIN No.'),
+          philhealthNo: r.get('Philhealth No.'),
+          pagibigNo: r.get('Pag-ibig No.'),
+          emergencyContact: r.get('Emergency Contact Person'),
+          emergencyNo: r.get('Emergency Contact No.')
+        };
+      });
 
     return NextResponse.json({ success: true, employees });
   } catch (e: unknown) {
@@ -71,19 +76,18 @@ export async function PUT(request: Request) {
     }
 
     const doc = await getDoc();
+    const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
+    const empRows = await empSheet.getRows();
+    const empRow = empRows.find(r => r.get('Employee No.')?.toString() === employeeNo.toString());
     
-    // 1. Update Access (Role/Status) - Admin Only
+    if (!empRow) return NextResponse.json({ success: false, message: 'Employee not found' }, { status: 404 });
+
+    // 1. Update Role/Status - Admin Only
     if (action === 'role' || action === 'status') {
       if (!isAdmin) return NextResponse.json({ success: false, message: 'Admin only' }, { status: 403 });
       
-      const accSheet = doc.sheetsByTitle[SHEET_NAMES.ACCESS];
-      const accRows = await accSheet.getRows();
-      const accRow = accRows.find(r => r.get('Employee No.')?.toString() === employeeNo.toString());
-      if (accRow) {
-        if (action === 'role') accRow.set('Role', value);
-        if (action === 'status') accRow.set('Status', value || (accRow.get('Status') === 'Active' ? 'Inactive' : 'Active'));
-        await accRow.save();
-      }
+      if (action === 'role') empRow.set('Role', value);
+      if (action === 'status') empRow.set('Status', value || (empRow.get('Status') === 'Active' ? 'Inactive' : 'Active'));
     }
 
     // 2. Update Profile Data
@@ -96,9 +100,9 @@ export async function PUT(request: Request) {
 
       // If self-edit, restrict fields? (Actually user said "self edit to fill their insufficient profiles")
       // We'll allow editing basic info.
-      if (profileData.firstName) empRow.set('First Name', profileData.firstName);
-      if (profileData.lastName) empRow.set('Last Name', profileData.lastName);
-      if (profileData.middleName) empRow.set('Middle Name', profileData.middleName);
+      if (profileData.firstName) empRow.set('First Name', profileData.firstName.toUpperCase());
+      if (profileData.lastName) empRow.set('Last Name', profileData.lastName.toUpperCase());
+      if (profileData.middleName) empRow.set('Middle Name', profileData.middleName.toUpperCase());
       if (profileData.email) empRow.set('Email Address', profileData.email);
       if (profileData.department) empRow.set('Department', profileData.department);
       if (profileData.position) empRow.set('Position', profileData.position);
@@ -131,9 +135,9 @@ export async function PUT(request: Request) {
         if (profileData.shiftEnd) empRow.set('Shift End', profileData.shiftEnd);
       }
 
-      await empRow.save();
     }
-
+ 
+    await empRow.save();
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
     const error = e as Error;

@@ -99,15 +99,25 @@ export default function AttendancePage() {
             <div className="col-span-12 lg:col-span-4">
               <ClockUI onUpdate={() => fetchRecords()} />
               
-              <div className="mt-8 p-8 bg-white/5 border border-white/5 rounded-[2.5rem] opacity-40 transition-all hover:opacity-100">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-4 flex items-center gap-2">
+              <div className="mt-8 p-8 bg-white/5 border border-white/5 rounded-[2.5rem] transition-all hover:bg-white/[0.04]">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-6 flex items-center gap-2">
                   <Calendar size={14} className="text-brand-gold" />
-                  Shift Policy
+                  Operational Schedule
                 </h3>
-                <p className="text-[11px] text-white/80 leading-relaxed font-medium">
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Shift Start</span>
+                    <span className="text-sm font-black text-white">{(session?.user as any)?.shiftStart || '09:00 AM'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Shift End</span>
+                    <span className="text-sm font-black text-white">{(session?.user as any)?.shiftEnd || '06:00 PM'}</span>
+                  </div>
+                </div>
+
+                <p className="text-[9px] text-white/30 leading-relaxed font-medium mt-6 uppercase tracking-wider text-center">
                   All shifts are validated against the enterprise geofence. 
-                  Please ensure location services are active. 
-                  Standard grace period: 10 minutes.
                 </p>
               </div>
             </div>

@@ -36,37 +36,35 @@ export async function POST(request: Request) {
 
     const doc = await getDoc();
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
-    const accessSheet = doc.sheetsByTitle[SHEET_NAMES.ACCESS];
 
     // Check for existing employee
     const empRows = await empSheet.getRows();
-    const exists = empRows.some(r => r.get('Employee No.')?.toString() === employeeNo.toString() || r.get('Email Address')?.toLowerCase() === email.toLowerCase());
+    const exists = empRows.some(r => 
+      r.get('Employee No.')?.toString() === employeeNo.toString() || 
+      r.get('Email Address')?.toLowerCase() === email.toLowerCase() ||
+      r.get('Updated Email Address')?.toLowerCase() === email.toLowerCase()
+    );
     
     if (exists) {
       return NextResponse.json({ success: false, message: 'Employee ID or Email already exists' }, { status: 409 });
     }
 
-    // 1. Create Employee Profile
+    // 1. Create Employee Profile & Access Account in one go
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const nextRowIndex = empRows.length + 2; // +1 for header, +1 for this new row
+    
     await empSheet.addRow({
       'Employee No.': employeeNo,
-      'First Name': firstName,
-      'Last Name': lastName,
+      'First Name': firstName.toUpperCase(),
+      'Last Name': lastName.toUpperCase(),
+      'Complete Name': `=C${nextRowIndex}&" "&D${nextRowIndex}&" "&B${nextRowIndex}`,
       'Email Address': email,
       'Department': department || 'Operations',
       'Position': position || 'Associate',
       'Status': 'Active',
-      'Date Hired': new Date().toISOString().split('T')[0],
-    });
-
-    // 2. Create Access Account
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await accessSheet.addRow({
-      'Employee No.': employeeNo,
-      'Email': email,
+      'Role': role || 'EMPLOYEE',
       'Password Hash': hashedPassword,
-      'Role': role || 'Employee',
-      'Status': 'Active',
-      'Created At': new Date().toISOString(),
+      'Start Date': new Date().toISOString().split('T')[0],
     });
 
     return NextResponse.json({ success: true, message: 'Employee onboarded successfully' });

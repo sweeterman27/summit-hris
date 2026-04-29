@@ -27,9 +27,7 @@ export default function IdentityTablet() {
   const [uploading, setUploading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
 
-  // Fetch live employee data
-  const { data: empData, mutate } = useSWR(sessionUser ? '/api/employees' : null);
-  
+
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -100,8 +98,14 @@ export default function IdentityTablet() {
     }
   };
 
+  const isShadowAdmin = sessionUser?.employeeNo === 'SA-001';
+
+  // Fetch live employee data
+  const { data: empData, mutate } = useSWR(!isShadowAdmin && sessionUser ? '/api/employees' : null);
+  
+
   // Find the current logged-in user in the live data list
-  const liveUser = empData?.employees?.find((e: any) => e.employeeNo?.toString() === sessionUser?.employeeNo?.toString());
+  const liveUser = !isShadowAdmin ? empData?.employees?.find((e: any) => e.employeeNo?.toString() === sessionUser?.employeeNo?.toString()) : null;
   
   // Combine session and live data (Live data takes priority for display)
   const user = liveUser ? {

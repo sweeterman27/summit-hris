@@ -13,14 +13,18 @@ import {
   TrendingUp,
   BookOpen,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  Shield
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 
 const MENU_ITEMS = [
   { label: 'Intelligence', icon: LayoutDashboard, href: '/dashboard' },
+  { label: 'Briefings', icon: Bell, href: '/notifications' },
   { label: 'Library', icon: BookOpen, href: '/documents' },
+  { label: 'Security Ledger', icon: Shield, href: '/admin/ledger' },
   { label: 'Calendar', icon: Calendar, href: '/calendar' },
   { label: 'Registry', icon: Users, href: '/employees' },
   { label: 'Chronicle', icon: Clock, href: '/attendance' },
@@ -35,6 +39,9 @@ export default function Sidebar() {
   const role = (session?.user as any)?.role?.toUpperCase();
 
   const filteredItems = MENU_ITEMS.filter(item => {
+    if (item.href === '/admin/ledger') {
+      return role === 'SUPERADMIN' || (session?.user as any)?.employeeNo === 'SA-001';
+    }
     if (item.href === '/employees' || item.href === '/settings') {
       return ['ADMIN', 'SUPERADMIN', 'HR'].includes(role);
     }

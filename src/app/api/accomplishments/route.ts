@@ -30,13 +30,13 @@ export async function POST(request: Request) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       
-      const result = await uploadToCloudinary(
+      const url = await uploadToCloudinary(
         buffer, 
-        'SUMMIT/Accomplishment Report',
+        'accomplishments',
         `${employeeNo}_${Date.now()}_${file.name.split('.')[0]}`
-      ) as any;
+      );
       
-      return result.url;
+      return url;
     }));
 
     // 2. Save to Spreadsheet

@@ -12,16 +12,37 @@ import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { StatsCardSkeleton, IdentityTabletSkeleton } from '@/components/ui/Skeleton';
 import Skeleton from '@/components/ui/Skeleton';
+import RiskIntelligence from '@/components/ui/RiskIntelligence';
 
 import ProfileCompletionReminder from '@/components/ui/ProfileCompletionReminder';
+import NeuroVisualizer from '@/components/ui/NeuroVisualizer';
 
 export default function Dashboard() {
   const { data: session, status: sessionStatus } = useSession();
   
-  const { data: stats, isLoading: isStatsLoading } = useSWR('/api/stats');
+  const { data: stats, isLoading: isStatsLoading, mutate: mutateStats } = useSWR('/api/stats');
   const { data: eventsData, isLoading: isEventsLoading } = useSWR('/api/events?upcoming=true');
+  const { mutate: mutatePerf } = useSWR('/api/performance');
+  const { data: analyzeData, mutate: mutateAnalyze } = useSWR('/api/performance/analyze');
   
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = React.useState(false);
+  const [isNeuroModalOpen, setIsNeuroModalOpen] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  const handlePerfSync = async () => {
+    setIsSyncing(true);
+    try {
+      await Promise.all([
+        mutateStats(),
+        mutatePerf(),
+        mutateAnalyze()
+      ]);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setIsNeuroModalOpen(true);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const user = session?.user as { role?: string; employeeNo?: string } | undefined;
   const isAdmin = ['ADMIN', 'SUPERADMIN', 'HR'].includes(user?.role?.toUpperCase() || '');
@@ -124,55 +145,58 @@ export default function Dashboard() {
           <div className="col-span-12 lg:col-span-8 space-y-10">
             {/* Admin Command Center */}
             {isAdmin && (
-              <div className="grid grid-cols-3 gap-8">
-                {isStatsLoading ? (
-                  [1, 2, 3].map(i => <StatsCardSkeleton key={i} />)
-                ) : (
-                  <>
-                    <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-red-400/20 transition-all shadow-deep relative overflow-hidden">
-                      <div className="flex items-center gap-4 mb-8 relative z-10">
-                        <div className="p-3 bg-red-400/10 rounded-xl text-red-400 border border-red-400/20 shadow-lg">
-                          <AlertCircle size={20} />
+              <>
+                <div className="grid grid-cols-3 gap-8">
+                  {isStatsLoading ? (
+                    [1, 2, 3].map(i => <StatsCardSkeleton key={i} />)
+                  ) : (
+                    <>
+                      <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-red-400/20 transition-all shadow-deep relative overflow-hidden">
+                        <div className="flex items-center gap-4 mb-8 relative z-10">
+                          <div className="p-3 bg-red-400/10 rounded-xl text-red-400 border border-red-400/20 shadow-lg">
+                            <AlertCircle size={20} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Absentee Alert</span>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Absentee Alert</span>
+                        <div className="flex items-center justify-between gap-4 relative z-10">
+                          <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats?.global?.notLoggedIn || 0}</h3>
+                          <span className="text-[9px] font-black text-red-400 bg-red-400/10 border border-red-400/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">Action Required</span>
+                        </div>
+                        <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-400/[0.02] blur-3xl rounded-full" />
                       </div>
-                      <div className="flex items-center justify-between gap-4 relative z-10">
-                        <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats.global.notLoggedIn}</h3>
-                        <span className="text-[9px] font-black text-red-400 bg-red-400/10 border border-red-400/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">Action Required</span>
-                      </div>
-                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-400/[0.02] blur-3xl rounded-full" />
-                    </div>
 
-                    <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-emerald-400/20 transition-all shadow-deep relative overflow-hidden">
-                      <div className="flex items-center gap-4 mb-8 relative z-10">
-                        <div className="p-3 bg-emerald-400/10 rounded-xl text-emerald-400 border border-emerald-400/20 shadow-lg">
-                          <Calendar size={20} />
+                      <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-emerald-400/20 transition-all shadow-deep relative overflow-hidden">
+                        <div className="flex items-center gap-4 mb-8 relative z-10">
+                          <div className="p-3 bg-emerald-400/10 rounded-xl text-emerald-400 border border-emerald-400/20 shadow-lg">
+                            <Calendar size={20} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Deployment Status</span>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Deployment Status</span>
+                        <div className="flex items-center justify-between gap-4 relative z-10">
+                          <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats?.global?.onLeaveToday || 0}</h3>
+                          <span className="text-[9px] font-black text-emerald-400 bg-emerald-400/10 border border-red-400/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">On Leave Today</span>
+                        </div>
+                        <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-400/[0.02] blur-3xl rounded-full" />
                       </div>
-                      <div className="flex items-center justify-between gap-4 relative z-10">
-                        <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats.global.onLeaveToday}</h3>
-                        <span className="text-[9px] font-black text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">On Leave Today</span>
-                      </div>
-                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-400/[0.02] blur-3xl rounded-full" />
-                    </div>
 
-                    <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-brand-gold/20 transition-all shadow-deep relative overflow-hidden">
-                      <div className="flex items-center gap-4 mb-8 relative z-10">
-                        <div className="p-3 bg-brand-gold/10 rounded-xl text-brand-gold border border-brand-gold/20 shadow-lg">
-                          <Flag size={20} />
+                      <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 backdrop-blur-xl group hover:border-brand-gold/20 transition-all shadow-deep relative overflow-hidden">
+                        <div className="flex items-center gap-4 mb-8 relative z-10">
+                          <div className="p-3 bg-brand-gold/10 rounded-xl text-brand-gold border border-brand-gold/20 shadow-lg">
+                            <Flag size={20} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Operational Events</span>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Operational Events</span>
+                        <div className="flex items-center justify-between gap-4 relative z-10">
+                          <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats?.global?.eventsToday || 0}</h3>
+                          <span className="text-[9px] font-black text-brand-gold/40 bg-brand-gold/5 border border-brand-gold/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">Registry Events</span>
+                        </div>
+                        <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-brand-gold/[0.02] blur-3xl rounded-full" />
                       </div>
-                      <div className="flex items-center justify-between gap-4 relative z-10">
-                        <h3 className="text-5xl font-black text-white tracking-tighter shrink-0">{stats.global.eventsToday}</h3>
-                        <span className="text-[9px] font-black text-brand-gold/40 bg-brand-gold/5 border border-brand-gold/20 px-3 py-2 rounded-lg uppercase tracking-widest shadow-xl text-center leading-tight">Registry Events</span>
-                      </div>
-                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-brand-gold/[0.02] blur-3xl rounded-full" />
-                    </div>
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </div>
+                <RiskIntelligence />
+              </>
             )}
 
             <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'} gap-8`}>
@@ -228,8 +252,12 @@ export default function Dashboard() {
                  <div className={`grid ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-3'} gap-8`}>
                     <a href="/leave" className="bg-white/[0.02] hover:bg-brand-gold/[0.08] border border-white/5 hover:border-brand-gold/20 rounded-3xl p-8 transition-all duration-500 group/btn shadow-xl hover:-translate-y-1">
                        <CalendarDays className="text-brand-gold/40 group-hover/btn:text-brand-gold mb-5 transition-all duration-500 group-hover/btn:scale-110" size={32} strokeWidth={1.5} />
-                       <h4 className="text-white font-black text-sm mb-1 uppercase tracking-tight">File Leave</h4>
-                       <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Absence Registry</p>
+                       <h4 className="text-white font-black text-sm mb-1 uppercase tracking-tight">
+                         {isAdmin ? 'Leave Registry' : 'File Leave'}
+                       </h4>
+                       <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
+                         {isAdmin ? 'Operational Absence Audit' : 'Absence Registry'}
+                       </p>
                     </a>
                     <a href="/calendar" className="bg-white/[0.02] hover:bg-brand-gold/[0.08] border border-white/5 hover:border-brand-gold/20 rounded-3xl p-8 transition-all duration-500 group/btn shadow-xl hover:-translate-y-1">
                        <Calendar className="text-brand-gold/40 group-hover/btn:text-brand-gold mb-5 transition-all duration-500 group-hover/btn:scale-110" size={32} strokeWidth={1.5} />
@@ -244,11 +272,14 @@ export default function Dashboard() {
                       </a>
                     )}
                     <button 
-                      onClick={() => window.location.reload()}
-                      className="bg-white/[0.02] hover:bg-brand-gold/[0.08] border border-white/5 hover:border-brand-gold/20 rounded-3xl p-8 text-left transition-all duration-500 group/btn shadow-xl hover:-translate-y-1"
+                      onClick={handlePerfSync}
+                      disabled={isSyncing}
+                      className="bg-white/[0.02] hover:bg-brand-gold/[0.08] border border-white/5 hover:border-brand-gold/20 rounded-3xl p-8 text-left transition-all duration-500 group/btn shadow-xl hover:-translate-y-1 disabled:opacity-50"
                     >
-                       <TrendingUp className="text-brand-gold/40 group-hover/btn:text-brand-gold mb-5 transition-all duration-500 group-hover/btn:scale-110" size={32} strokeWidth={1.5} />
-                       <h4 className="text-white font-black text-sm mb-1 uppercase tracking-tight">Perf Sync</h4>
+                       <TrendingUp className={`text-brand-gold/40 group-hover/btn:text-brand-gold mb-5 transition-all duration-500 group-hover/btn:scale-110 ${isSyncing ? 'animate-pulse' : ''}`} size={32} strokeWidth={1.5} />
+                       <h4 className="text-white font-black text-sm mb-1 uppercase tracking-tight">
+                         {isSyncing ? 'Syncing...' : 'Perf Sync'}
+                       </h4>
                        <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest">OKR Pulse Update</p>
                     </button>
                  </div>
@@ -265,6 +296,12 @@ export default function Dashboard() {
         isOpen={isAnnouncementModalOpen}
         onClose={() => setIsAnnouncementModalOpen(false)}
         onUpdate={() => {}} 
+      />
+
+      <NeuroVisualizer 
+        isOpen={isNeuroModalOpen}
+        onClose={() => setIsNeuroModalOpen(false)}
+        data={analyzeData?.report || []}
       />
     </DashboardLayout>
   );

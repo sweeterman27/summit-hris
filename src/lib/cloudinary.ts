@@ -6,36 +6,35 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function uploadToCloudinary(
-  file: Buffer,
-  folder: string,
-  filename?: string
-) {
-  console.log(`[CLOUDINARY] Attempting upload to: ${folder}/${filename}`);
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: folder,
-        public_id: filename?.split('.')[0], 
-        resource_type: 'auto',
-      },
-      (error, result) => {
-        if (error) {
-          console.error('[CLOUDINARY] ERROR:', error);
-          reject(error);
-        } else {
-          console.log(`[CLOUDINARY] SUCCESS! URL: ${result?.secure_url}`);
-          resolve({
-            success: true,
-            url: result?.secure_url,
-            publicId: result?.public_id,
-          });
-        }
-      }
-    );
+/**
+ * Uploads a file (Buffer or Base64) to Cloudinary
+ * @param file The file data (Buffer or Base64 string)
+ * @param folder The folder name in Cloudinary
+ * @param publicId Optional specific public ID for the file
+ * @returns The secure URL of the uploaded file
+ */
+export async function uploadToCloudinary(file: Buffer | string, folder: string, publicId?: string) {
+  try {
+    const fileToUpload = Buffer.isBuffer(file) 
+      ? `data:image/jpeg;base64,${file.toString('base64')}` 
+      : file;
 
-    uploadStream.end(file);
-  });
+    const options: any = {
+      folder: `summit_hris/${folder}`,
+      resource_type: 'auto',
+    };
+
+    if (publicId) {
+      options.public_id = publicId;
+    }
+
+    const result = await cloudinary.uploader.upload(fileToUpload, options);
+
+    return result.secure_url;
+  } catch (error) {
+    console.error('Cloudinary Upload Error:', error);
+    throw error;
+  }
 }
 
 export default cloudinary;

@@ -2,55 +2,67 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getDoc, SHEET_NAMES } from '@/lib/googleSheets';
+import bcrypt from 'bcrypt';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+    const user = session.user as any;
+    const isAdmin = ['ADMIN', 'SUPERADMIN', 'HR'].includes(user.role?.toUpperCase());
+
     const doc = await getDoc();
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
 
     if (!empSheet) {
-      console.error('Sheet not found:', SHEET_NAMES.EMPLOYEES);
       return NextResponse.json({ success: false, message: 'Database tab not found' }, { status: 500 });
     }
 
     const empRows = await empSheet.getRows();
 
-    // SAFETY GUARD: Filter out any "Ghost Rows" or empty lines in the spreadsheet
+    // SAFETY GUARD: Filter and Sanitize based on Role
     const employees = empRows
       .filter(r => r.get('Employee No.') && r.get('First Name')) 
       .map(r => {
-        const empNo = r.get('Employee No.')?.toString() || 'Unknown';
-        return {
-          employeeNo: empNo,
+        const baseInfo = {
+          employeeNo: r.get('Employee No.')?.toString() || 'Unknown',
           firstName: r.get('First Name') || '',
           lastName: r.get('Last Name') || '',
           email: r.get('Email Address') || r.get('Updated Email Address') || '',
           department: r.get('Department') || 'Unassigned',
           position: r.get('Position') || 'Unassigned',
-          workLat: r.get('Work Latitude'),
-          workLng: r.get('Work Longitude'),
-          workRadius: r.get('Work Radius'),
-          shiftStart: r.get('Shift Start'),
-          shiftEnd: r.get('Shift End'),
           role: r.get('Role') ? (String(r.get('Role')).charAt(0).toUpperCase() + String(r.get('Role')).slice(1).toLowerCase()) : 'Employee',
           status: r.get('Status') || 'Inactive',
           photo: r.get('Profile Photo'),
-          middleName: r.get('Middle Name'),
-          birthdate: r.get('Birthdate'),
-          civilStatus: r.get('Civil Status'),
-          gender: r.get('Gender'),
-          mobileNo: r.get('Mobile No.'),
-          completeAddress: r.get('Complete Address'),
-          sssNo: r.get('SSS No.'),
-          tinNo: r.get('TIN No.'),
-          philhealthNo: r.get('Philhealth No.'),
-          pagibigNo: r.get('Pag-ibig No.'),
-          emergencyContact: r.get('Emergency Contact Person'),
-          emergencyNo: r.get('Emergency Contact No.')
+          shiftStart: r.get('Shift Start'),
+          shiftEnd: r.get('Shift End'),
         };
+
+        // ONLY Admins can see high-sensitivity PII
+        if (isAdmin) {
+          return {
+            ...baseInfo,
+            workLat: r.get('Work Latitude'),
+            workLng: r.get('Work Longitude'),
+            workRadius: r.get('Work Radius'),
+            middleName: r.get('Middle Name'),
+            birthdate: r.get('Birthdate'),
+            civilStatus: r.get('Civil Status'),
+            gender: r.get('Gender'),
+            mobileNo: r.get('Mobile No.'),
+            completeAddress: r.get('Complete Address'),
+            sssNo: r.get('SSS No.'),
+            tinNo: r.get('TIN No.'),
+            philhealthNo: r.get('Philhealth No.'),
+            pagibigNo: r.get('Pag-ibig No.'),
+            emergencyContact: r.get('Emergency Contact Person'),
+            emergencyNo: r.get('Emergency Contact No.')
+          };
+        }
+
+        return baseInfo;
       });
 
     return NextResponse.json({ success: true, employees });
@@ -92,10 +104,7 @@ export async function PUT(request: Request) {
 
     // 2. Update Profile Data
     if (Object.keys(profileData).length > 0) {
-      const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
-      const empRows = await empSheet.getRows();
-      const empRow = empRows.find(r => r.get('Employee No.')?.toString() === employeeNo.toString());
-      
+      // Use existing empRow found above to ensure updates are saved correctly
       if (!empRow) return NextResponse.json({ success: false, message: 'Employee not found' }, { status: 404 });
 
       // If self-edit, restrict fields? (Actually user said "self edit to fill their insufficient profiles")
@@ -133,11 +142,38 @@ export async function PUT(request: Request) {
         if (profileData.workRadius) empRow.set('Work Radius', profileData.workRadius);
         if (profileData.shiftStart) empRow.set('Shift Start', profileData.shiftStart);
         if (profileData.shiftEnd) empRow.set('Shift End', profileData.shiftEnd);
+        
+        // Log Administrative Override
+        await logAudit(
+          (session.user as any).employeeNo,
+          employeeNo,
+          'PROFILE_UPDATE',
+          `Administrative update to profile fields: ${Object.keys(profileData).join(', ')}`,
+          'INFO'
+        );
+
+        // Executive Power: Set Password
+        if (profileData.password) {
+          console.log(`[AUTH_RESET] Recalibrating credentials for: ${employeeNo}`);
+          const hashedPassword = await bcrypt.hash(profileData.password, 10);
+          empRow.set('Password Hash', hashedPassword);
+          console.log('[AUTH_RESET] New Bcrypt hash synchronized.');
+
+          await logAudit(
+            (session.user as any).employeeNo,
+            employeeNo,
+            'CREDENTIAL_RESET',
+            'Executive password override initiated and synchronized.',
+            'CRITICAL'
+          );
+        }
       }
 
     }
  
+    console.log(`[REGISTRY_SYNC] Saving updates for employee: ${employeeNo}`);
     await empRow.save();
+    console.log('[REGISTRY_SYNC] Database commit successful.');
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
     const error = e as Error;

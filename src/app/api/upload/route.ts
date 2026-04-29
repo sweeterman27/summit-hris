@@ -23,26 +23,28 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     // 1. Upload to Cloudinary (EASY & FAST)
-    const result = await uploadToCloudinary(
+    const photoUrl = await uploadToCloudinary(
       buffer, 
-      'SUMMIT/Profile Picture',
+      'profiles',
       filename
-    ) as any;
-
-    // 2. Update Google Sheet
-    const doc = await getDoc();
-    const sheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
-    const rows = await sheet.getRows();
-    const userRow = rows.find(
-      (r) => r.get('Employee No.')?.toString() === user.employeeNo?.toString()
     );
 
-    if (userRow) {
-      userRow.set('Profile Photo', result.url);
-      await userRow.save();
+    // 2. Update Google Sheet (Skip if Shadow Admin)
+    if (user.employeeNo !== 'SA-001') {
+      const doc = await getDoc();
+      const sheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
+      const rows = await sheet.getRows();
+      const userRow = rows.find(
+        (r) => r.get('Employee No.')?.toString() === user.employeeNo?.toString()
+      );
+
+      if (userRow) {
+        userRow.set('Profile Photo', photoUrl);
+        await userRow.save();
+      }
     }
 
-    return NextResponse.json({ success: true, url: result.url });
+    return NextResponse.json({ success: true, url: photoUrl });
   } catch (e: any) {
     console.error('Upload Error:', e);
     return NextResponse.json({ success: false, message: e.message }, { status: 500 });

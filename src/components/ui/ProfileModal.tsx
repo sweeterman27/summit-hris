@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, User, Mail, Briefcase, MapPin, Target, ChevronDown, Cake, Smartphone } from 'lucide-react';
+import { X, Save, User, Mail, Briefcase, MapPin, Target, ChevronDown, Cake, Smartphone, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
 import { DEPARTMENTS, POSITIONS } from '@/lib/constants';
 import MapSelector from './MapSelector';
 
@@ -63,8 +63,10 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
     philhealthNo: '',
     pagibigNo: '',
     emergencyContact: '',
-    emergencyNo: ''
+    emergencyNo: '',
+    password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'identity' | 'personal' | 'compliance' | 'workspace'>('identity');
   const [loading, setLoading] = useState(false);
 
@@ -92,7 +94,8 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
         philhealthNo: employee.philhealthNo || '',
         pagibigNo: employee.pagibigNo || '',
         emergencyContact: employee.emergencyContact || '',
-        emergencyNo: employee.emergencyNo || ''
+        emergencyNo: employee.emergencyNo || '',
+        password: ''
       });
     }
   }, [employee, isOpen]);
@@ -110,6 +113,7 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
         })
       });
       if (res.ok) {
+        setFormData(prev => ({ ...prev, password: '' }));
         onUpdate();
         onClose();
       }
@@ -274,6 +278,36 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
                            </div>
                         </div>
                     </div>
+
+                    {isAdmin && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-6 bg-red-400/5 border border-red-400/10 rounded-[2rem] space-y-4 mt-6"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Lock size={16} className="text-red-400" />
+                          <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Executive Credential Override</p>
+                        </div>
+                        <div className="relative">
+                          <input 
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Set New Pass-Link Key (Leave blank to keep current)"
+                            value={formData.password}
+                            onChange={(e) => setFormData({...formData, password: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-6 pr-14 py-4 text-white focus:border-red-400/50 outline-none transition-all font-bold text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors"
+                          >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+                        <p className="text-[9px] font-medium text-white/20 px-2 italic">⚠️ Warning: Changing the password will immediately terminate all active sessions for this user.</p>
+                      </motion.div>
+                    )}
                   </motion.div>
                 )}
 
@@ -477,18 +511,25 @@ export default function ProfileModal({ isOpen, onClose, onUpdate, employee, isAd
 
             {/* Fixed Footer */}
               <div className="p-10 pt-4 bg-brand-obsidian border-t border-white/5 relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.3)]">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-16 bg-brand-gold hover:bg-white text-brand-obsidian font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl shadow-brand-gold/10 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                >
-                  {loading ? <div className="w-5 h-5 border-2 border-brand-obsidian/30 border-t-brand-obsidian rounded-full animate-spin" /> : (
-                    <>
-                      <Save size={16} />
-                      <span>Synchronize Identity Registry</span>
-                    </>
-                  )}
-                </button>
+                {employee?.employeeNo === 'SA-001' ? (
+                  <div className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3">
+                    <ShieldCheck className="text-brand-gold" size={20} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Shadow Identity Managed via Kernel Configuration</span>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-16 bg-brand-gold hover:bg-white text-brand-obsidian font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl shadow-brand-gold/10 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                  >
+                    {loading ? <div className="w-5 h-5 border-2 border-brand-obsidian/30 border-t-brand-obsidian rounded-full animate-spin" /> : (
+                      <>
+                        <Save size={16} />
+                        <span>Synchronize Identity Registry</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
 

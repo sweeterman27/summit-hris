@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, ArrowRight, Loader2, Lock, Mail, Fingerprint, Sparkles, Users } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Loader2, Lock, Mail, Fingerprint, Sparkles, Users, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/Toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -133,14 +134,23 @@ export default function LoginPage() {
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-focus-within/field:text-brand-gold transition-colors">Pass-Link Key</label>
                 <Lock size={12} className="text-white/10 group-focus-within/field:text-brand-gold transition-colors" />
               </div>
-              <input 
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-8 py-5 text-white placeholder:text-white/5 focus:border-brand-gold/40 focus:bg-white/[0.06] outline-none transition-all font-bold text-sm"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-8 py-5 text-white placeholder:text-white/5 focus:border-brand-gold/40 focus:bg-white/[0.06] outline-none transition-all font-bold text-sm pr-14"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20 hover:text-brand-gold transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <div className="pt-2">

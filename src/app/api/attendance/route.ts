@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -168,17 +168,18 @@ export async function POST(request: Request) {
       const name = `${empRow?.get('First Name') || ''} ${empRow?.get('Last Name') || ''}`.trim();
       const dept = empRow?.get('Department') || '';
       
-      // Upload biometric photo to Vercel Blob if provided
+      // Upload biometric photo to Cloudinary if provided
       let photoUrl = '';
       if (photo) {
         try {
-          const blob = await put(`attendance/${employeeNo}_${Date.now()}.jpg`, Buffer.from(photo.split(',')[1], 'base64'), {
-            access: 'public',
-            contentType: 'image/jpeg'
-          });
-          photoUrl = blob.url;
-        } catch (blobErr) {
-          console.error('Blob upload failed:', blobErr);
+          const url = await uploadToCloudinary(
+            photo, 
+            'attendance',
+            `${employeeNo}_${Date.now()}`
+          );
+          photoUrl = url;
+        } catch (cloudinaryErr) {
+          console.error('Cloudinary upload failed:', cloudinaryErr);
         }
       }
 

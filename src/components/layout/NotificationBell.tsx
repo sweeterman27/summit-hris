@@ -20,9 +20,9 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Smart Syncing: Polls every 30 seconds, or when tab is refocused
+  // Smart Syncing: Polls every 3 minutes, or when tab is refocused
   const { data, mutate } = useSWR('/api/notifications', fetcher, {
-    refreshInterval: 30000,
+    refreshInterval: 180000,
     revalidateOnFocus: true
   });
 
@@ -144,7 +144,7 @@ export default function NotificationBell() {
                             {notif.title}
                           </p>
                           <span className="text-[9px] font-black text-white/20 uppercase tracking-widest ml-2 whitespace-nowrap">
-                            {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                           </span>
                         </div>
                         <p className="text-xs text-white/40 line-clamp-2 leading-relaxed">

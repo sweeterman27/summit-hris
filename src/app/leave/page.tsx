@@ -17,6 +17,17 @@ interface LeaveRequest {
   remarks?: string;
 }
 
+interface LeaveBalance {
+  employeeNo: string;
+  name: string;
+  sil: number;
+  birthday: number;
+  tenure: number;
+  used: number;
+  totalAllowance: number;
+  remaining: number;
+}
+
 import { useSession } from 'next-auth/react';
 
 export default function LeaveHub() {
@@ -24,6 +35,7 @@ export default function LeaveHub() {
   const isAdmin = ['ADMIN', 'SUPERADMIN', 'HR'].includes((session?.user as any)?.role?.toUpperCase());
   
   const [requests, setRequests] = React.useState<LeaveRequest[]>([]);
+  const [balances, setBalances] = React.useState<LeaveBalance[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [reviewing, setReviewing] = React.useState<string | null>(null);
@@ -36,6 +48,7 @@ export default function LeaveHub() {
       .then(data => {
         if (data.success) {
           setRequests(data.requests);
+          setBalances(data.balances || []);
           setCurrentPage(1);
         }
         setLoading(false);
@@ -81,9 +94,9 @@ export default function LeaveHub() {
           </button>
         </div>
 
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main List */}
-          <div className="col-span-12">
+          <div className="col-span-1 lg:col-span-8">
             <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden backdrop-blur-xl">
               <div className="px-8 py-6 border-b border-white/10 flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{isAdmin ? 'Enterprise Review Queue' : 'Request History'}</span>
@@ -189,6 +202,65 @@ export default function LeaveHub() {
                 pageSize={pageSize}
               />
             </div>
+          </div>
+
+          {/* Leave Balances Sidebar */}
+          <div className="col-span-1 lg:col-span-4 space-y-8">
+            {(() => {
+              const myBalance = balances.find(b => b.employeeNo === (session?.user as any)?.employeeNo);
+              if (!myBalance) return null;
+
+              return (
+                <div className="bg-[#0c0b05] border border-brand-gold/20 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-[0_0_50px_rgba(201,162,54,0.05)]">
+                  <div className="absolute inset-0 bg-gradient-to-br from-brand-gold/[0.05] to-transparent pointer-events-none" />
+                  
+                  <div className="relative z-10 mb-8 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand-gold/10 rounded-xl text-brand-gold border border-brand-gold/20">
+                        <CalendarRange size={18} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">My Allowances</span>
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 space-y-6">
+                    <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Remaining Balance</span>
+                       <span className="text-3xl font-black text-brand-gold tracking-tighter">{myBalance.remaining}d</span>
+                    </div>
+
+                    <div className="space-y-4 px-2">
+                       <div className="flex items-center justify-between">
+                         <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">SIL Balance</span>
+                         <span className="text-sm font-black text-white">{myBalance.sil}d</span>
+                       </div>
+                       <div className="flex items-center justify-between">
+                         <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Birthday Leave</span>
+                         <span className="text-sm font-black text-white">{myBalance.birthday}d</span>
+                       </div>
+                       <div className="flex items-center justify-between">
+                         <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Tenure Leave</span>
+                         <span className="text-sm font-black text-emerald-400">{myBalance.tenure}d</span>
+                       </div>
+                    </div>
+
+                    <div className="h-px w-full bg-white/5 my-4" />
+                    
+                    <div className="flex justify-between items-end px-2">
+                       <div>
+                         <span className="text-[9px] font-black text-red-400/60 uppercase tracking-widest block mb-1">Used</span>
+                         <span className="text-xl font-black text-red-400">{myBalance.used}d</span>
+                       </div>
+                       <div className="text-right">
+                         <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">Total Allowance</span>
+                         <span className="text-xl font-black text-white">{myBalance.totalAllowance}d</span>
+                       </div>
+                    </div>
+                  </div>
+                  <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-brand-gold/[0.03] blur-[80px] rounded-full pointer-events-none" />
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

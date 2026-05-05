@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NotificationBell from './NotificationBell';
 import { motion, AnimatePresence } from 'framer-motion';
+import DirectiveGate from '../ui/DirectiveGate';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -76,6 +77,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Footer Ambient Glow */}
         <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-brand-gold/[0.02] blur-[150px] rounded-full pointer-events-none" />
       </div>
+
+      {/* Mandatory Directive Gate */}
+      <DirectiveGate />
     </div>
   );
 }

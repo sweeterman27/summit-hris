@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getDoc, SHEET_NAMES } from '@/lib/googleSheets';
 import { notifyRoles } from '@/lib/notifications';
+import { logAudit } from '@/lib/audit';
 
 interface SessionUser {
   employeeNo: string;
@@ -94,16 +95,110 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    const { type, lat, lng, photo } = await request.json();
+    const { type, lat, lng, photo, faceDescriptor } = await request.json();
     const employeeNo = user.employeeNo;
 
     const doc = await getDoc();
     
-    // 1. Check Geofence
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
     const empRows = await empSheet.getRows();
     const empRow = empRows.find(r => r.get('Employee No.')?.toString() === employeeNo.toString());
     
+    // --- Biometric Security Engine (1:1 Verification) ---
+    if (faceDescriptor && empRow) {
+      const savedDescriptorStr = empRow.get('Face Descriptor');
+      if (!savedDescriptorStr) {
+        // ENROLLMENT PHASE: 1:N GLOBAL DEDUPLICATION
+        let isDuplicate = false;
+        
+        for (const otherRow of empRows) {
+          // Skip self
+          if (otherRow.get('Employee No.')?.toString() === employeeNo.toString()) continue;
+          
+          const otherDescStr = otherRow.get('Face Descriptor');
+          if (otherDescStr) {
+            try {
+              const otherDesc = JSON.parse(otherDescStr);
+              const dist = Math.sqrt(
+                otherDesc.reduce((sum: number, val: number, i: number) => sum + Math.pow(val - faceDescriptor[i], 2), 0)
+              );
+              
+              if (dist <= 0.60) {
+                isDuplicate = true;
+                break;
+              }
+            } catch (e) {
+              // Silently ignore corrupted hashes in other rows
+            }
+          }
+        }
+
+        if (isDuplicate) {
+          console.warn(`[BIOMETRIC_FRAUD] Blocked duplicate face enrollment for ${employeeNo}`);
+          await notifyRoles(
+            ['HR', 'ADMIN', 'SUPERADMIN'],
+            'Biometric Fraud Alert',
+            `CRITICAL: ${user.name} attempted to enroll a facial identity that is already registered to another active employee.`,
+            'ERROR'
+          );
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Enrollment Rejected: This facial identity is already registered in the Global Enterprise Registry.' 
+          }, { status: 403 });
+        }
+
+        console.log(`[BIOMETRICS] Enrolling initial face descriptor for ${employeeNo}`);
+        empRow.set('Face Descriptor', JSON.stringify(faceDescriptor));
+        await empRow.save();
+      } else {
+        // VERIFICATION PHASE
+        try {
+          const savedDescriptor = JSON.parse(savedDescriptorStr);
+          // Calculate Euclidean Distance between the two 128-point arrays
+          const distance = Math.sqrt(
+            savedDescriptor.reduce((sum: number, val: number, i: number) => sum + Math.pow(val - faceDescriptor[i], 2), 0)
+          );
+          
+          console.log(`[BIOMETRICS] Verification Distance for ${employeeNo}: ${distance.toFixed(3)}`);
+          
+          if (distance > 0.60) { // Accommodate accessories (glasses, hats, makeup)
+            // Upload forensic evidence
+            let evidenceUrl = '';
+            if (photo) {
+              try {
+                evidenceUrl = await uploadToCloudinary(photo, 'security_audits', `FAIL_${employeeNo}_${Date.now()}`);
+              } catch (cloudinaryErr) {
+                console.error('Forensic upload failed:', cloudinaryErr);
+              }
+            }
+
+            await logAudit(
+              employeeNo,
+              'SYSTEM',
+              'BIOMETRIC_FAILURE',
+              `Biometric mismatch detected during ${type}. Variance: ${distance.toFixed(3)}`,
+              'CRITICAL',
+              evidenceUrl,
+              distance.toFixed(3)
+            );
+
+            await notifyRoles(
+              ['HR', 'ADMIN', 'SUPERADMIN'],
+              'Biometric Verification Failed',
+              `${user.name} failed facial recognition check during clock ${type}. (Variance: ${distance.toFixed(2)})`,
+              'ERROR'
+            );
+            return NextResponse.json({ 
+              success: false, 
+              message: `Biometric verification failed. Identity unrecognized (Variance: ${distance.toFixed(2)}). Please remove heavy accessories.` 
+            }, { status: 403 });
+          }
+        } catch (e) {
+          console.error("[BIOMETRICS] Parsing error:", e);
+        }
+      }
+    }
+
     if (empRow && empRow.get('Work Latitude')) {
       const workLat = parseFloat(empRow.get('Work Latitude'));
       const workLng = parseFloat(empRow.get('Work Longitude'));
@@ -140,18 +235,34 @@ export async function POST(request: Request) {
 
       if (existing) return NextResponse.json({ success: false, message: 'Already clocked in for today.' });
 
-      // --- Status Calculation (Personal Shift Override) ---
-      const settingsSheet = doc.sheetsByTitle["Global Settings"];
-      const settingsRows = await settingsSheet.getRows();
+      // --- Status Calculation (Dynamic Shift Override) ---
+      const scheduleSheet = doc.sheetsByTitle[SHEET_NAMES.SCHEDULES];
+      let dynamicShiftStart = null;
+      if (scheduleSheet) {
+        const scheduleRows = await scheduleSheet.getRows();
+        const dailySchedule = scheduleRows.find(r => 
+          r.get('Employee No.')?.toString() === employeeNo.toString() && 
+          r.get('Date') === todayStr
+        );
+        if (dailySchedule) {
+          dynamicShiftStart = dailySchedule.get('Start Time');
+          console.log(`[SHIFT_ENGINE] Dynamic override detected for ${employeeNo}: ${dynamicShiftStart}`);
+        }
+      }
+
+      const settingsSheet = doc.sheetsByTitle[SHEET_NAMES.SETTINGS];
+      let gracePeriod = 15; // Default 15-minute grace period as per enterprise policy
       
-      const getSetting = (name: string) => settingsRows.find(r => r.get('Setting Name') === name)?.get('Value');
+      if (settingsSheet) {
+        const settingsRows = await settingsSheet.getRows();
+        const customGrace = settingsRows.find(r => r.get('Setting Name') === 'Late Grace Period')?.get('Value');
+        if (customGrace) gracePeriod = parseInt(customGrace);
+      }
       
-      const globalShiftStart = getSetting('Shift Start') || '09:00 AM';
-      const gracePeriod = parseInt(getSetting('Late Grace Period') || '15');
+      const globalShiftStart = '09:00 AM'; // Default fallback
       
-      // Personal Override or Global
-      const personalShiftStart = empRow?.get('Shift Start');
-      const activeShiftStart = personalShiftStart || globalShiftStart;
+      // Hierarchy: Dynamic (Daily) > Personal (Static) > Global (Static)
+      const activeShiftStart = dynamicShiftStart || empRow?.get('Shift Start') || globalShiftStart;
 
       // Parse time (handles 12h/24h)
       const [time, modifier] = activeShiftStart.split(' ');
@@ -162,7 +273,8 @@ export async function POST(request: Request) {
       const shiftDate = new Date(now);
       shiftDate.setHours(hours, minutes, 0, 0);
       
-      const graceLimit = new Date(shiftDate.getTime() + gracePeriod * 60000);
+      // Calculate grace limit (Shift Start + Grace Period)
+      const graceLimit = new Date(shiftDate.getTime() + (gracePeriod * 60000));
       const status = now > graceLimit ? 'Late' : 'On Time';
 
       const name = `${empRow?.get('First Name') || ''} ${empRow?.get('Last Name') || ''}`.trim();

@@ -4,8 +4,9 @@ import React from 'react';
 import { useSession } from 'next-auth/react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import ClockUI from '@/components/ui/ClockUI';
-import { Calendar, MapPin, History, Search, User, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, History, Search, User, ShieldCheck } from 'lucide-react';
 import Pagination from '@/components/ui/Pagination';
+import { formatTimeTo12h } from '@/lib/utils';
 
 interface AttendanceRecord {
   id: string;
@@ -40,7 +41,7 @@ export default function AttendancePage() {
       .then(data => {
         if (data.success) {
           setRecords(data.records);
-          setCurrentPage(1); // Reset to first page on new fetch
+          setCurrentPage(1);
         }
         setLoading(false);
       });
@@ -94,7 +95,6 @@ export default function AttendancePage() {
         </div>
 
         <div className="grid grid-cols-12 gap-8">
-          {/* Left Column: Clock Terminal (Hidden for Superadmin) */}
           {!isSuperAdmin && (
             <div className="col-span-12 lg:col-span-4">
               <ClockUI onUpdate={() => fetchRecords()} />
@@ -108,11 +108,11 @@ export default function AttendancePage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                     <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Shift Start</span>
-                    <span className="text-sm font-black text-white">{(session?.user as any)?.shiftStart || '09:00 AM'}</span>
+                    <span className="text-sm font-black text-white">{formatTimeTo12h((session?.user as any)?.shiftStart) || '09:00 AM'}</span>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                     <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Shift End</span>
-                    <span className="text-sm font-black text-white">{(session?.user as any)?.shiftEnd || '06:00 PM'}</span>
+                    <span className="text-sm font-black text-white">{formatTimeTo12h((session?.user as any)?.shiftEnd) || '06:00 PM'}</span>
                   </div>
                 </div>
 
@@ -123,7 +123,6 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Right Column: History Table */}
           <div className={`col-span-12 ${isSuperAdmin ? 'lg:col-span-12' : 'lg:col-span-8'}`}>
             <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden backdrop-blur-xl h-full flex flex-col">
               <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between">
@@ -151,7 +150,7 @@ export default function AttendancePage() {
                   <tbody className="divide-y divide-white/5">
                     {loading ? (
                       [...Array(8)].map((_, i) => (
-                        <tr key={i} className="animate-pulse">
+                        <tr key={`skeleton-${i}`} className="animate-pulse">
                           <td colSpan={4} className="px-8 py-10 h-16 bg-white/[0.01]" />
                         </tr>
                       ))

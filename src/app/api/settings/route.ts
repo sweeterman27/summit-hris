@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getDoc, SHEET_NAMES } from '@/lib/googleSheets';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const SETTINGS_SHEET_NAME = "Global Settings";
 
 export async function GET() {

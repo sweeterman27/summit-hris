@@ -26,7 +26,7 @@ if (typeof window !== 'undefined') {
 interface BiometricModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onVerified: (photoData: string) => void;
+  onVerified: (photoData: string, descriptor?: number[]) => void;
   type: 'in' | 'out';
 }
 
@@ -40,6 +40,10 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [faceapi, setFaceapi] = useState<FaceAPI | null>(null);
   const [scanPulse, setScanPulse] = useState(0);
+  const [hasBlinked, setHasBlinked] = useState(false);
+  const [isSpoofAlert, setIsSpoofAlert] = useState(false);
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
+  const blinkHistory = useRef<number[]>([]);
 
   const stopCamera = useCallback(() => {
     const stream = videoRef.current?.srcObject as MediaStream;
@@ -61,20 +65,66 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
         const detections = await apiInstance.detectSingleFace(
           videoRef.current,
           new apiInstance.TinyFaceDetectorOptions()
-        ).withFaceLandmarks();
+        ).withFaceLandmarks().withFaceDescriptor();
 
-        setIsFaceDetected(!!detections);
-        setScanPulse(prev => (prev + 1) % 100);
+        if (detections) {
+          setIsFaceDetected(true);
+          setScanPulse(prev => (prev + 1) % 100);
+
+          // Advanced Anti-Spoofing: Depth / Size Analysis
+          const box = detections.detection.box;
+          const boxArea = box.width * box.height;
+          const videoArea = videoRef.current.videoWidth * videoRef.current.videoHeight;
+          
+          if (boxArea < videoArea * 0.08) {
+             setIsSpoofAlert(true);
+          } else {
+             setIsSpoofAlert(false);
+
+             // Liveness Protocol: Blink Detection (EAR Algorithm)
+             const landmarks = detections.landmarks;
+             const leftEye = landmarks.getLeftEye();
+             const rightEye = landmarks.getRightEye();
+             
+             const calculateEAR = (eye: any[]) => {
+               const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+               return (dist(eye[1], eye[5]) + dist(eye[2], eye[4])) / (2.0 * dist(eye[0], eye[3]));
+             };
+             
+             const avgEAR = (calculateEAR(leftEye) + calculateEAR(rightEye)) / 2;
+             blinkHistory.current.push(avgEAR);
+             if (blinkHistory.current.length > 8) blinkHistory.current.shift();
+
+             // Detect transition from open -> closed -> open
+             const minEAR = Math.min(...blinkHistory.current);
+             const currentEAR = blinkHistory.current[blinkHistory.current.length - 1];
+             
+             // Relaxed EAR thresholds to accommodate varying webcam angles and fast blinks
+             if (minEAR < 0.26 && currentEAR > 0.28) {
+                setHasBlinked(true);
+                setFaceDescriptor(Array.from(detections.descriptor));
+             }
+          }
+        } else {
+          setIsFaceDetected(false);
+          setIsSpoofAlert(false);
+        }
       } catch (err) {
         // Silently skip frames where detection fails or models aren't ready
       }
-    }, 200);
+    }, 100); // Faster polling (10 frames per sec) to catch rapid blinks
 
     return () => clearInterval(interval);
   }, []);
 
   const startCamera = useCallback(async (apiInstance: FaceAPI) => {
     try {
+      if (videoRef.current?.srcObject) {
+         setLoading(false);
+         detectFace(apiInstance);
+         return;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: 1280 },
@@ -108,6 +158,7 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
         await Promise.all([
           api.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           api.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          api.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
       }
       
@@ -127,8 +178,13 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
         if (isMounted) await loadModels();
       } else {
         stopCamera();
+        if (videoRef.current) videoRef.current.srcObject = null;
         setLoading(false);
         setIsFaceDetected(false);
+        setHasBlinked(false);
+        setIsSpoofAlert(false);
+        setFaceDescriptor(null);
+        blinkHistory.current = [];
       }
     };
     init();
@@ -144,7 +200,7 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
     if (ctx) {
       ctx.drawImage(videoRef.current, 0, 0);
       const data = canvas.toDataURL('image/jpeg');
-      onVerified(data);
+      onVerified(data, faceDescriptor || undefined);
     }
   };
 
@@ -198,12 +254,16 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Live Telemetry</p>
                         <div className="space-y-3">
                            <div className="flex items-center justify-between">
-                              <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">Detector</span>
-                              <span className="text-[8px] font-black uppercase text-emerald-400">Active</span>
+                              <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">Spoof Analysis</span>
+                              <span className={`text-[8px] font-black uppercase ${isSpoofAlert ? 'text-red-400' : 'text-emerald-400'}`}>
+                                {isSpoofAlert ? 'WARNING: TOO FAR' : 'SECURE'}
+                              </span>
                            </div>
                            <div className="flex items-center justify-between">
-                              <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">FPS Rate</span>
-                              <span className="text-[8px] font-black uppercase text-white">24.0hz</span>
+                              <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">Liveness (Blink)</span>
+                              <span className={`text-[8px] font-black uppercase ${hasBlinked ? 'text-emerald-400' : 'text-brand-gold'}`}>
+                                {hasBlinked ? 'VERIFIED' : 'PENDING'}
+                              </span>
                            </div>
                            <div className="flex items-center justify-between">
                               <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">Latency</span>
@@ -301,23 +361,23 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
                           {/* Face Tracker HUD */}
                           <motion.div 
                              animate={{ 
-                               borderColor: isFaceDetected ? 'rgba(52, 211, 153, 0.4)' : 'rgba(202, 138, 4, 0.1)',
+                               borderColor: isSpoofAlert ? 'rgba(248, 113, 113, 0.4)' : isFaceDetected && hasBlinked ? 'rgba(52, 211, 153, 0.4)' : 'rgba(202, 138, 4, 0.4)',
                                scale: isFaceDetected ? 1.02 : 1
                              }}
                              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[400px] border border-white/5 rounded-[100px] flex flex-col items-center justify-between py-10 transition-colors duration-500"
                           >
                              <div className="flex flex-col items-center gap-2">
-                                <Target size={24} className={isFaceDetected ? 'text-emerald-400' : 'text-brand-gold/20'} />
-                                <span className={`text-[8px] font-black uppercase tracking-[0.3em] ${isFaceDetected ? 'text-emerald-400' : 'text-white/20'}`}>
-                                   {isFaceDetected ? 'IDENTITY LOCALIZED' : 'SEEKING BIOMETRIC HASH'}
+                                <Target size={24} className={isSpoofAlert ? 'text-red-400' : isFaceDetected && hasBlinked ? 'text-emerald-400' : 'text-brand-gold/40'} />
+                                <span className={`text-[8px] font-black uppercase tracking-[0.3em] ${isSpoofAlert ? 'text-red-400' : isFaceDetected && hasBlinked ? 'text-emerald-400' : 'text-brand-gold'}`}>
+                                   {isSpoofAlert ? 'DISTANCE WARNING' : isFaceDetected && hasBlinked ? 'IDENTITY LOCALIZED' : isFaceDetected ? 'BLINK TO VERIFY' : 'SEEKING HASH'}
                                 </span>
                              </div>
 
                              <div className="w-full px-10">
                                 <div className="h-0.5 w-full bg-white/5 rounded-full overflow-hidden">
                                    <motion.div 
-                                      animate={{ width: isFaceDetected ? '100%' : '20%' }}
-                                      className={`h-full transition-all duration-700 ${isFaceDetected ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]' : 'bg-brand-gold'}`}
+                                      animate={{ width: isFaceDetected && hasBlinked ? '100%' : isFaceDetected ? '50%' : '20%' }}
+                                      className={`h-full transition-all duration-700 ${isSpoofAlert ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' : isFaceDetected && hasBlinked ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]' : 'bg-brand-gold shadow-[0_0_10px_rgba(202,138,4,0.5)]'}`}
                                    />
                                 </div>
                              </div>
@@ -350,22 +410,22 @@ export default function BiometricModal({ isOpen, onClose, onVerified, type }: Bi
                {/* Interaction Zone */}
                <div className="h-32 bg-[#1c1917] border-t border-white/5 flex items-center px-10 justify-between">
                   <div className="flex items-center gap-6">
-                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-700 ${isFaceDetected ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 border border-white/5 text-white/10'}`}>
-                        <ShieldCheck size={28} />
+                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-700 ${isFaceDetected && hasBlinked && !isSpoofAlert ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : isSpoofAlert ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'bg-white/5 border border-white/5 text-white/10'}`}>
+                        {isSpoofAlert ? <AlertCircle size={28} /> : <ShieldCheck size={28} />}
                      </div>
                      <div>
-                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500 ${isFaceDetected ? 'text-emerald-400' : 'text-white/20'}`}>
-                           {isFaceDetected ? 'VERIFICATION READY' : 'WAITING FOR SOURCE'}
+                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500 ${isFaceDetected && hasBlinked && !isSpoofAlert ? 'text-emerald-400' : isSpoofAlert ? 'text-red-400' : 'text-white/20'}`}>
+                           {isSpoofAlert ? 'SECURITY FAULT' : isFaceDetected && hasBlinked ? 'VERIFICATION READY' : isFaceDetected ? 'LIVENESS CHECK PENDING' : 'WAITING FOR SOURCE'}
                         </p>
                         <p className="text-white font-bold text-lg tracking-tighter">
-                           {isFaceDetected ? 'Biometric ID Lock Confirmed' : 'Position Face within Viewport'}
+                           {isSpoofAlert ? 'Move closer to the camera' : isFaceDetected && hasBlinked ? 'Biometric ID Lock Confirmed' : isFaceDetected ? 'Please blink to verify presence' : 'Position Face within Viewport'}
                         </p>
                      </div>
                   </div>
 
                   <button
                     onClick={handleVerify}
-                    disabled={!isFaceDetected}
+                    disabled={!isFaceDetected || !hasBlinked || isSpoofAlert}
                     className="h-16 px-10 bg-brand-gold hover:bg-brand-gold/90 disabled:opacity-20 disabled:grayscale text-brand-obsidian font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl shadow-brand-gold/10 flex items-center gap-4 transition-all active:scale-[0.95]"
                   >
                     <Camera size={18} />

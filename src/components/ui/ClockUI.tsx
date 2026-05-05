@@ -53,7 +53,7 @@ export default function ClockUI({ onUpdate }: { onUpdate: () => void }) {
     toast('Geofence locked. Awaiting biometric identity verification.', 'SUCCESS', 'LOCATION VERIFIED');
   };
 
-  const handleVerified = async (photoData: string) => {
+  const handleVerified = async (photoData: string, descriptor?: number[]) => {
     const activeType = biometricType;
     setBiometricType(null);
     setLoading(true);
@@ -67,7 +67,8 @@ export default function ClockUI({ onUpdate }: { onUpdate: () => void }) {
           type: activeType,
           lat: coords?.lat,
           lng: coords?.lng,
-          photo: photoData
+          photo: photoData,
+          faceDescriptor: descriptor
         })
       });
       const data = await res.json();

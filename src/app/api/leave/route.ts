@@ -11,7 +11,9 @@ export async function GET(request: Request) {
 
     const doc = await getDoc();
     const sheet = doc.sheetsByTitle[SHEET_NAMES.LEAVE];
-    if (!sheet) return NextResponse.json({ success: true, requests: [] });
+    const balancesSheet = doc.sheetsByTitle[SHEET_NAMES.LEAVE_BALANCES];
+
+    if (!sheet) return NextResponse.json({ success: true, requests: [], balances: [] });
 
     const rows = await sheet.getRows();
     const role = (session.user as any).role?.toUpperCase();
@@ -37,7 +39,27 @@ export async function GET(request: Request) {
       remarks: r.get('Remarks'),
     })).reverse();
 
-    return NextResponse.json({ success: true, requests });
+    // Fetch Balances
+    let balances = [];
+    if (balancesSheet) {
+      const bRows = await balancesSheet.getRows();
+      let filteredBRows = bRows;
+      if (role === 'EMPLOYEE') {
+        filteredBRows = bRows.filter(r => r.get('Employee No.')?.toString() === employeeNo.toString());
+      }
+      balances = filteredBRows.map(r => ({
+        employeeNo: r.get('Employee No.'),
+        name: r.get('Name'),
+        sil: parseFloat(r.get('SIL Balance') || '0'),
+        birthday: parseFloat(r.get('Birthday Leave') || '0'),
+        tenure: parseFloat(r.get('Tenure Leave') || '0'),
+        used: parseFloat(r.get('Used Leaves') || '0'),
+        totalAllowance: parseFloat(r.get('Total Allowance') || '0'),
+        remaining: parseFloat(r.get('Remaining Balance') || '0'),
+      }));
+    }
+
+    return NextResponse.json({ success: true, requests, balances });
   } catch (e: any) {
     return NextResponse.json({ success: false, message: e.message }, { status: 500 });
   }

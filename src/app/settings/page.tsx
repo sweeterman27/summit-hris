@@ -25,7 +25,7 @@ export default function GlobalSettings() {
 
   const fetchSettings = (isManual = false) => {
     if (isManual) setLoading(true);
-    fetch('/api/settings')
+    fetch('/api/settings', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
       .then(res => res.json())
       .then(data => {
         if (data.success) setSettings(data.settings);
@@ -38,7 +38,7 @@ export default function GlobalSettings() {
     
     const initFetch = async () => {
       try {
-        const res = await fetch('/api/settings');
+        const res = await fetch('/api/settings', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
         const data = await res.json();
         if (isMounted && data.success) {
           setSettings(data.settings);

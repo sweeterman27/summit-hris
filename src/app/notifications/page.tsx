@@ -107,7 +107,7 @@ export default function NotificationsPage() {
                             </h3>
                             <div className="flex items-center gap-4">
                               <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
-                                {new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString()}
+                                {new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                               </span>
                               {notif.status === 'Unread' && (
                                 <button 

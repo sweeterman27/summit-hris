@@ -13,9 +13,11 @@ export type AuditAction =
 export async function logAudit(
   actorNo: string,
   targetNo: string,
-  action: AuditAction,
+  action: AuditAction | string,
   details: string,
-  severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO'
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO',
+  evidence: string = '',
+  variance: string = ''
 ) {
   try {
     const doc = await getDoc();
@@ -33,8 +35,10 @@ export async function logAudit(
       'Action': action,
       'Details': details,
       'Severity': severity,
-      'IP Address': 'SYSTEM_INTERNAL', // Could be expanded to capture client IP
-      'Status': 'VERIFIED'
+      'IP Address': 'SYSTEM_INTERNAL', 
+      'Status': 'VERIFIED',
+      'Evidence': evidence,
+      'Variance': variance
     });
 
     console.log(`[AUDIT_LOG] ${action} recorded for Actor: ${actorNo}`);

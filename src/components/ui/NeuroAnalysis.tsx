@@ -8,6 +8,7 @@ interface NeuroMetric {
   employeeNo: string;
   name: string;
   department: string;
+  photo: string;
   healthScore: number;
   status: string;
   insight: string;
@@ -102,8 +103,12 @@ export default function NeuroAnalysis() {
 
                    <div className="flex items-start justify-between mb-8">
                       <div className="flex items-center gap-4">
-                         <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
-                            <Brain className={item.healthScore > 80 ? 'text-emerald-400' : item.healthScore > 50 ? 'text-brand-gold' : 'text-red-400'} size={28} />
+                         <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
+                            {item.photo ? (
+                               <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                            ) : (
+                               <Brain className={item.healthScore > 80 ? 'text-emerald-400' : item.healthScore > 50 ? 'text-brand-gold' : 'text-red-400'} size={28} />
+                            )}
                          </div>
                          <div>
                             <h3 className="text-xl font-bold text-white tracking-tighter">{item.name}</h3>

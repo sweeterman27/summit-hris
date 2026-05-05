@@ -19,6 +19,7 @@ interface Employee {
   role: string;
   status: string;
   photo?: string;
+  isArchived?: boolean;
 }
 
 export default function EmployeeDirectory() {
@@ -32,6 +33,7 @@ export default function EmployeeDirectory() {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [registryFilter, setRegistryFilter] = React.useState<'ALL' | 'ACTIVE' | 'ARCHIVED'>('ALL');
   const [pendingRole, setPendingRole] = React.useState<{empNo: string, newRole: string, oldRole: string} | null>(null);
   const pageSize = 10;
 
@@ -79,7 +81,13 @@ export default function EmployeeDirectory() {
     const searchLower = search.toLowerCase();
     const empNo = (e.employeeNo || '').toLowerCase();
     
-    return fullName.includes(searchLower) || empNo.includes(searchLower);
+    const matchesSearch = fullName.includes(searchLower) || empNo.includes(searchLower);
+    const matchesFilter = 
+      registryFilter === 'ALL' ? true :
+      registryFilter === 'ACTIVE' ? !e.isArchived :
+      e.isArchived;
+
+    return matchesSearch && matchesFilter;
   });
 
   return (
@@ -104,15 +112,34 @@ export default function EmployeeDirectory() {
             )}
           </div>
 
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-brand-gold transition-colors" size={20} />
-            <input 
-              type="text"
-              placeholder="Search registry..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none w-80 transition-all backdrop-blur-xl"
-            />
+          <div className="flex items-center gap-4">
+            <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10">
+              {(['ALL', 'ACTIVE', 'ARCHIVED'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => {
+                    setRegistryFilter(f);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    registryFilter === f ? 'bg-brand-gold text-brand-obsidian shadow-lg' : 'text-white/20 hover:text-white/40'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-brand-gold transition-colors" size={20} />
+              <input 
+                type="text"
+                placeholder="Search registry..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-white focus:border-brand-gold/50 outline-none w-80 transition-all backdrop-blur-xl"
+              />
+            </div>
           </div>
         </div>
 
@@ -143,12 +170,12 @@ export default function EmployeeDirectory() {
                   </tr>
                 ) : (
                   filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((e) => (
-                    <tr key={e.employeeNo} className="hover:bg-brand-gold/[0.02] transition-colors group">
+                    <tr key={e.employeeNo} className={`hover:bg-brand-gold/[0.02] transition-colors group ${e.isArchived ? 'opacity-50 grayscale-[0.6]' : ''}`}>
                       <td className="px-8 py-8">
                         <div className="flex items-center gap-5">
                           <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 overflow-hidden relative shrink-0">
                             {e.photo ? (
-                              <Image src={e.photo} alt={e.firstName} fill className="object-cover" />
+                              <Image src={e.photo} alt={e.firstName} fill className={`object-cover ${e.isArchived ? 'grayscale' : ''}`} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-white/20 bg-white/5">
                                 <UserCircle size={24} />
@@ -174,8 +201,9 @@ export default function EmployeeDirectory() {
                       <td className="px-6 py-8">
                         <select
                           value={e.role}
+                          disabled={e.isArchived}
                           onChange={(ev) => setPendingRole({ empNo: e.employeeNo, newRole: ev.target.value, oldRole: e.role })}
-                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-gold outline-none focus:border-brand-gold/50 transition-all cursor-pointer"
+                          className={`bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-gold outline-none focus:border-brand-gold/50 transition-all ${e.isArchived ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                         >
                           {['Employee', 'Manager', 'HR', 'Admin', 'Superadmin'].map(r => (
                             <option key={r} value={r} className="bg-brand-obsidian">{r}</option>
@@ -193,16 +221,22 @@ export default function EmployeeDirectory() {
                            >
                              <Edit3 size={16} />
                            </button>
-                           <button
-                             onClick={() => handleUpdate(e.employeeNo, 'status')}
-                             className={`px-6 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${
-                               e.status === 'Active' 
-                                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400' 
-                                 : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-400'
-                             }`}
-                           >
-                             {e.status}
-                           </button>
+                           {e.isArchived ? (
+                             <div className="px-6 py-2 rounded-full border border-white/10 bg-white/5 text-white/20 text-[10px] font-black uppercase tracking-widest">
+                                ARCHIVED
+                             </div>
+                           ) : (
+                             <button
+                               onClick={() => handleUpdate(e.employeeNo, 'status')}
+                               className={`px-6 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                 e.status === 'Active' 
+                                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400' 
+                                   : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-emerald-500/10 hover:border-emerald-500/20 hover:text-emerald-400'
+                               }`}
+                             >
+                               {e.status}
+                             </button>
+                           )}
                         </div>
                       </td>
                     </tr>

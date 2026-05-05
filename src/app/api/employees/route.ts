@@ -15,55 +15,66 @@ export async function GET(request: Request) {
 
     const doc = await getDoc();
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
+    const archiveSheet = doc.sheetsByTitle[SHEET_NAMES.ARCHIVE];
 
     if (!empSheet) {
       return NextResponse.json({ success: false, message: 'Database tab not found' }, { status: 500 });
     }
 
-    const empRows = await empSheet.getRows();
+    const [empRows, archiveRows] = await Promise.all([
+      empSheet.getRows(),
+      archiveSheet ? archiveSheet.getRows() : Promise.resolve([])
+    ]);
 
-    // SAFETY GUARD: Filter and Sanitize based on Role
-    const employees = empRows
-      .filter(r => r.get('Employee No.') && r.get('First Name')) 
-      .map(r => {
-        const baseInfo = {
-          employeeNo: r.get('Employee No.')?.toString() || 'Unknown',
-          firstName: r.get('First Name') || '',
-          lastName: r.get('Last Name') || '',
-          email: r.get('Email Address') || r.get('Updated Email Address') || '',
-          department: r.get('Department') || 'Unassigned',
-          position: r.get('Position') || 'Unassigned',
-          role: r.get('Role') ? (String(r.get('Role')).charAt(0).toUpperCase() + String(r.get('Role')).slice(1).toLowerCase()) : 'Employee',
-          status: r.get('Status') || 'Inactive',
-          photo: r.get('Profile Photo'),
-          shiftStart: r.get('Shift Start'),
-          shiftEnd: r.get('Shift End'),
+    const normalizeEmployee = (r: any, isArchived: boolean) => {
+      const baseInfo = {
+        employeeNo: r.get('Employee No.')?.toString() || 'Unknown',
+        firstName: r.get('First Name') || '',
+        lastName: r.get('Last Name') || '',
+        email: r.get('Email Address') || r.get('Updated Email Address') || '',
+        department: r.get('Department') || 'Unassigned',
+        position: r.get('Position') || 'Unassigned',
+        role: r.get('Role') ? (String(r.get('Role')).charAt(0).toUpperCase() + String(r.get('Role')).slice(1).toLowerCase()) : 'Employee',
+        status: isArchived ? 'Archived' : (r.get('Status') || 'Inactive'),
+        photo: r.get('Profile Photo'),
+        shiftStart: r.get('Shift Start'),
+        shiftEnd: r.get('Shift End'),
+        reportsTo: r.get('Reports To') || '',
+        isArchived
+      };
+
+      if (isAdmin) {
+        return {
+          ...baseInfo,
+          workLat: r.get('Work Latitude'),
+          workLng: r.get('Work Longitude'),
+          workRadius: r.get('Work Radius'),
+          middleName: r.get('Middle Name'),
+          birthdate: r.get('Birthdate'),
+          civilStatus: r.get('Civil Status'),
+          gender: r.get('Gender'),
+          mobileNo: r.get('Mobile No.'),
+          completeAddress: r.get('Complete Address'),
+          sssNo: r.get('SSS No.'),
+          tinNo: r.get('TIN No.'),
+          philhealthNo: r.get('Philhealth No.'),
+          pagibigNo: r.get('Pag-ibig No.'),
+          emergencyContact: r.get('Emergency Contact Person'),
+          emergencyNo: r.get('Emergency Contact No.')
         };
+      }
+      return baseInfo;
+    };
 
-        // ONLY Admins can see high-sensitivity PII
-        if (isAdmin) {
-          return {
-            ...baseInfo,
-            workLat: r.get('Work Latitude'),
-            workLng: r.get('Work Longitude'),
-            workRadius: r.get('Work Radius'),
-            middleName: r.get('Middle Name'),
-            birthdate: r.get('Birthdate'),
-            civilStatus: r.get('Civil Status'),
-            gender: r.get('Gender'),
-            mobileNo: r.get('Mobile No.'),
-            completeAddress: r.get('Complete Address'),
-            sssNo: r.get('SSS No.'),
-            tinNo: r.get('TIN No.'),
-            philhealthNo: r.get('Philhealth No.'),
-            pagibigNo: r.get('Pag-ibig No.'),
-            emergencyContact: r.get('Emergency Contact Person'),
-            emergencyNo: r.get('Emergency Contact No.')
-          };
-        }
+    const activeEmployees = empRows
+      .filter(r => r.get('Employee No.') && r.get('First Name'))
+      .map(r => normalizeEmployee(r, false));
 
-        return baseInfo;
-      });
+    const archivedEmployees = archiveRows
+      .filter(r => r.get('Employee No.') && r.get('First Name'))
+      .map(r => normalizeEmployee(r, true));
+
+    const employees = [...activeEmployees, ...archivedEmployees];
 
     return NextResponse.json({ success: true, employees });
   } catch (e: unknown) {
@@ -136,6 +147,7 @@ export async function PUT(request: Request) {
       // Workspace Info
       if (profileData.workLat) empRow.set('Work Latitude', profileData.workLat);
       if (profileData.workLng) empRow.set('Work Longitude', profileData.workLng);
+      if (profileData.reportsTo) empRow.set('Reports To', profileData.reportsTo);
 
       // Admin only fields
       if (isAdmin) {

@@ -110,8 +110,6 @@ export default function AnnouncementModal({ isOpen, onClose, onUpdate }: Announc
   };
 
   const handleDelete = async (id: string) => {
-    // In Phase 3, we replace confirm() with a custom flow if needed, 
-    // but for now let's at least add a toast after action.
     if (!confirm('Purge this announcement?')) return;
     
     const newAnnouncements = announcements.filter(a => a.id !== id);
@@ -264,7 +262,7 @@ export default function AnnouncementModal({ isOpen, onClose, onUpdate }: Announc
                                </span>
                                {a.expiryDate && (
                                  <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">
-                                   Expires: {new Date(a.expiryDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                   Expires: {new Date(a.expiryDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                  </span>
                                )}
                             </div>

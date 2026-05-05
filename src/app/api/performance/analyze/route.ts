@@ -1,34 +1,27 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getDoc, SHEET_NAMES } from '@/lib/googleSheets';
+import { SHEET_NAMES } from '@/lib/googleSheets';
+import { withAdmin } from '@/lib/apiUtils';
 
 /**
  * AI Performance Analysis Endpoint
  * This endpoint cross-references OKRs with Attendance to provide "Neuro-Intelligence"
+ * Updated to include Security Anomaly Detection from the Forensic Ledger.
  */
 export async function GET(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
-    const user = session.user as any;
-    if (!['ADMIN', 'SUPERADMIN', 'HR'].includes(user.role?.toUpperCase())) {
-      return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-    }
-
+  return withAdmin(async (session, doc) => {
     const { searchParams } = new URL(request.url);
     const department = searchParams.get('department');
 
-    const doc = await getDoc();
     const okrSheet = doc.sheetsByTitle[SHEET_NAMES.OKR];
     const attendanceSheet = doc.sheetsByTitle[SHEET_NAMES.ATTENDANCE];
     const empSheet = doc.sheetsByTitle[SHEET_NAMES.EMPLOYEES];
+    const complianceSheet = doc.sheetsByTitle[SHEET_NAMES.COMPLIANCE];
 
-    const [okrRows, attRows, empRows] = await Promise.all([
+    const [okrRows, attRows, empRows, complianceRows] = await Promise.all([
       okrSheet.getRows(),
       attendanceSheet.getRows(),
-      empSheet.getRows()
+      empSheet.getRows(),
+      complianceSheet ? complianceSheet.getRows() : Promise.resolve([])
     ]);
 
     // 1. Filter by department if needed
@@ -52,12 +45,23 @@ export async function GET(request: Request) {
       const onTimeCount = userAtt.filter(r => r.get('Status') === 'On Time').length;
       const reliability = userAtt.length > 0 ? (onTimeCount / userAtt.length) : 1;
 
+      // Security Anomaly Detection (Forensic Sync)
+      const userFailures = complianceRows.filter(r => 
+        r.get('Target No.')?.toString() === empNo && 
+        r.get('Action') === 'BIOMETRIC_FAILURE'
+      );
+      const securityRisk = userFailures.length;
+
       // AI "Neuro" Scoring Logic
       let healthScore = 100;
       let status = 'Stable';
       let insight = 'Operating at optimal capacity.';
 
-      if (avgProgress > 0.8 && reliability < 0.6) {
+      if (securityRisk > 0) {
+        healthScore = Math.max(10, 50 - (securityRisk * 15));
+        status = 'Identity Risk';
+        insight = `Detected ${securityRisk} biometric verification failures. Immediate identity audit recommended.`;
+      } else if (avgProgress > 0.8 && reliability < 0.6) {
         healthScore = 45;
         status = 'Burnout Warning';
         insight = 'High output coupled with declining attendance reliability. High risk of burnout.';
@@ -75,6 +79,7 @@ export async function GET(request: Request) {
         employeeNo: empNo,
         name,
         department: emp.get('Department'),
+        photo: emp.get('Profile Photo') || '',
         healthScore,
         status,
         insight,
@@ -86,8 +91,5 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, report });
-  } catch (e: unknown) {
-    const error = e as Error;
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
+  });
 }

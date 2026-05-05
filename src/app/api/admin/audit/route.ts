@@ -28,7 +28,9 @@ export async function GET(request: Request) {
         action: r.get('Action'),
         details: r.get('Details'),
         severity: r.get('Severity'),
-        status: r.get('Status')
+        status: r.get('Status'),
+        evidence: r.get('Evidence') || '',
+        variance: r.get('Variance') || ''
       }));
 
     return NextResponse.json({ success: true, audits });

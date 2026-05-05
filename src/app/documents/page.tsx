@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { FileText, Download, Trash2, Search, Plus, Filter, LayoutGrid, List } from 'lucide-react';
+import { FileText, Download, Trash2, Search, Plus, Filter, LayoutGrid, List, CheckSquare } from 'lucide-react';
 import DocumentUploadModal from '@/components/ui/DocumentUploadModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import DashboardLayout from '@/components/layout/DashboardLayout';
 
 interface Document {
   id: string;
@@ -43,6 +44,24 @@ export default function DocumentLibrary() {
     if (!confirm('Purge this resource from the library?')) return;
     const res = await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
     if (res.ok) fetchDocuments();
+  };
+
+  const handleSignOff = async (docId: string, docTitle: string) => {
+    const res = await fetch('/api/documents/signoff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: docId, documentTitle: docTitle })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Document Acknowledged & Logged to Compliance Registry', {
+        style: { background: '#050505', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }
+      });
+    } else {
+      toast.error(data.message || 'Signature failed', {
+        style: { background: '#050505', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }
+      });
+    }
   };
 
   const filtered = documents.filter(d => 
@@ -109,6 +128,17 @@ export default function DocumentLibrary() {
                         <FileText size={24} />
                       </div>
                       <div className="flex gap-2">
+                        {!isAdmin && (
+                          <button 
+                            onClick={() => handleSignOff(doc.id, doc.title)}
+                            className="p-2 text-white/10 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-xl transition-all group/btn relative"
+                          >
+                            <CheckSquare size={16} />
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover/btn:opacity-100 transition-opacity bg-black border border-white/10 text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded whitespace-nowrap text-white">
+                              Sign-Off Protocol
+                            </div>
+                          </button>
+                        )}
                         {isAdmin && (
                           <button 
                             onClick={() => handleDelete(doc.id)}

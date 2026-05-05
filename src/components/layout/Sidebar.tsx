@@ -10,26 +10,19 @@ import {
   LayoutDashboard,
   Clock,
   Calendar,
-  TrendingUp,
-  BookOpen,
   Sparkles,
   ChevronRight,
-  Bell,
-  Shield
+  UserMinus
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 
 const MENU_ITEMS = [
-  { label: 'Intelligence', icon: LayoutDashboard, href: '/dashboard' },
-  { label: 'Briefings', icon: Bell, href: '/notifications' },
-  { label: 'Library', icon: BookOpen, href: '/documents' },
-  { label: 'Security Ledger', icon: Shield, href: '/admin/ledger' },
-  { label: 'Calendar', icon: Calendar, href: '/calendar' },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Registry', icon: Users, href: '/employees' },
   { label: 'Chronicle', icon: Clock, href: '/attendance' },
   { label: 'Pipeline', icon: Calendar, href: '/leave' },
-  { label: 'Performance Hub', icon: TrendingUp, href: '/performance' },
+  { label: 'Exit Protocol', icon: UserMinus, href: '/offboarding' },
   { label: 'Terminal', icon: Settings, href: '/settings' },
 ];
 
@@ -39,10 +32,7 @@ export default function Sidebar() {
   const role = (session?.user as any)?.role?.toUpperCase();
 
   const filteredItems = MENU_ITEMS.filter(item => {
-    if (item.href === '/admin/ledger') {
-      return role === 'SUPERADMIN' || (session?.user as any)?.employeeNo === 'SA-001';
-    }
-    if (item.href === '/employees' || item.href === '/settings') {
+    if (item.href === '/employees' || item.href === '/settings' || item.href === '/offboarding') {
       return ['ADMIN', 'SUPERADMIN', 'HR'].includes(role);
     }
     return true;
@@ -56,18 +46,14 @@ export default function Sidebar() {
       <div className="p-8 relative">
         <div className="flex items-center gap-4 group cursor-pointer">
           <div className="relative">
-            {/* Logo Container - Forced Relative & Isolated */}
             <div className="relative w-12 h-12 bg-gradient-to-br from-brand-gold via-brand-gold-bright to-brand-gold rounded-2xl flex items-center justify-center font-black text-brand-obsidian shadow-[0_0_20px_rgba(201,162,54,0.2)] group-hover:shadow-brand-gold/40 group-hover:scale-105 transition-all duration-500 overflow-hidden isolation-auto">
               <span className="relative z-10 text-xl tracking-tighter">S</span>
-              
-              {/* Shimmer - Strictly contained by parent relative + overflow-hidden */}
               <motion.div 
                 animate={{ x: ['-200%', '200%'] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute inset-0 bg-white/40 -skew-x-20 opacity-30 z-0 pointer-events-none" 
               />
             </div>
-
             <motion.div
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -92,7 +78,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar relative">
-        <p className="px-4 text-[10px] font-black text-white/10 uppercase tracking-[0.3em] mb-6">Strategic Operations</p>
+        <p className="px-4 text-[10px] font-black text-white/10 uppercase tracking-[0.3em] mb-6">Operations</p>
         
         {filteredItems.map((item) => {
           const Icon = item.icon;

@@ -70,8 +70,12 @@ export default function NeuroVisualizer({ isOpen, onClose, data }: NeuroVisualiz
                   >
                     <div className="flex items-start justify-between mb-8 relative z-10">
                       <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center font-black text-white/20 text-lg">
-                          {emp.name.charAt(0)}
+                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                          {emp.photo ? (
+                            <img src={emp.photo} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="font-black text-white/20 text-lg">{emp.name.charAt(0)}</span>
+                          )}
                         </div>
                         <div>
                           <h3 className="text-xl font-black text-white tracking-tight group-hover:text-glow transition-all">{emp.name}</h3>
